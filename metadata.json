@@ -1,7 +1,6 @@
 {
   "requestFramePermissions": [
-    "microphone",
-    "camera"
+    "microphone"
   ],
   "name": "Chronos Vertical Calendar",
   "description": "Professional holistic time-management app with PWA support.",

@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Task, DayData, MonthData } from './types.ts';
-import { MONTH_NAMES, COLORS } from './constants.tsx';
-import TaskModal from './components/TaskModal.tsx';
+import { Task, DayData, MonthData } from './types';
+import { MONTH_NAMES, COLORS } from './constants';
+import TaskModal from './components/TaskModal';
 import JSZip from 'jszip';
 
 // Helper to get local YYYY-MM-DD string
@@ -97,7 +98,7 @@ const MapleLeafStream: React.FC<{ accentColor?: string }> = ({ accentColor }) =>
         ctx.translate(this.x, this.y);
         ctx.rotate(this.rotation);
         ctx.scale(this.size, this.size);
-        ctx.shadowBlur = 20;
+        ctx.shadowBlur = 20; // Increased leaf glow
         ctx.shadowColor = this.color;
         ctx.globalAlpha = this.opacity;
         ctx.fillStyle = this.color;
@@ -176,8 +177,8 @@ const StellarStream: React.FC<{ variant?: 'timeAware' | 'gold' | 'custom', accen
         }
         this.speed = 0.8 + Math.random() * 2.5;
         this.length = 120 + Math.random() * 280;
-        this.width = 1.2 + Math.random() * 1.8;
-        this.opacity = 0.25 + Math.random() * 0.45;
+        this.width = 1.2 + Math.random() * 1.8; // Wider meteors
+        this.opacity = 0.25 + Math.random() * 0.45; // Higher opacity
       }
       update() {
         this.x -= this.speed * 1.2; this.y += this.speed;
@@ -193,7 +194,7 @@ const StellarStream: React.FC<{ variant?: 'timeAware' | 'gold' | 'custom', accen
         ctx.moveTo(this.x, this.y); ctx.lineTo(tailX, tailY); ctx.stroke();
         if (this.opacity > 0.2) {
           ctx.beginPath();
-          const headGrad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 6);
+          const headGrad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 6); // Larger head glow
           headGrad.addColorStop(0, `hsla(${color.h}, ${color.s}%, 100%, ${this.opacity})`);
           headGrad.addColorStop(1, `hsla(${color.h}, ${color.s}%, ${color.l}%, 0)`);
           ctx.fillStyle = headGrad; ctx.arc(this.x, this.y, 4.5, 0, Math.PI * 2); ctx.fill();
@@ -234,7 +235,7 @@ const MoodStar: React.FC<{ moodId: string, isReadOnly: boolean, onMoodSelect: (i
         path += `M ${x},${y}`;
       } else if (rounded) {
         const prevAngle = (Math.PI / points) * (i - 1); 
-        const prevRadius = (i - 1) % 2 === 0 ? outerRadius : innerRatio;
+        const prevRadius = (i - 1) % 2 === 0 ? outerRadius : innerRadius;
         const bulge = 1.05 + (1 - innerRatio) * 0.15;
         const cpX = centerX + ((radius + prevRadius) / 2) * Math.cos((angle + prevAngle) / 2) * bulge;
         const cpY = centerY + ((radius + prevRadius) / 2) * Math.sin((angle + prevAngle) / 2) * bulge;
@@ -328,6 +329,7 @@ const DashboardView: React.FC<{
       <div className="flex items-center justify-between relative z-10">
         <div className="flex items-center gap-5">
           <div onClick={() => setView('settings')} className={`relative w-16 h-16 rounded-[1.5rem] bg-gradient-to-br ${accentBg} to-black/40 p-0.5 shadow-[0_0_40px_rgba(0,0,0,0.7)] cursor-pointer hover:scale-105 active:scale-95 transition-all`}>
+            {/* Enhanced Profile Glow Effect */}
             <div className={`absolute -inset-8 ${accentBg} opacity-50 blur-[60px] animate-pulse rounded-full pointer-events-none`}></div>
             <div className="relative w-full h-full bg-[#0F1014] rounded-[22px] flex items-center justify-center overflow-hidden z-10 shadow-[inset_0_0_15px_rgba(255,255,255,0.1)]">
                <img src={profileImage} alt="avatar" className="w-full h-full object-cover" />
@@ -390,6 +392,14 @@ const SettingsViewComponent: React.FC<{
         if (event.target?.result) onUpdateProfileImage(event.target.result as string);
       };
       reader.readAsDataURL(e.target.files[0]);
+    }
+  };
+
+  const requestNotifs = async () => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'default') {
+        await Notification.requestPermission();
+      }
     }
   };
 
@@ -487,6 +497,54 @@ const SettingsViewComponent: React.FC<{
             </button>
           </div>
         </div>
+
+        <div className="space-y-6">
+          <div className="flex items-center justify-between px-2">
+            <label className={`text-[11px] font-black ${accentBase} tracking-[0.4em] uppercase drop-shadow-sm`}>Intelligence (AI)</label>
+            {typeof window !== 'undefined' && 'Notification' in window && Notification.permission !== 'granted' && (
+              <button onClick={requestNotifs} className="text-[9px] font-bold text-amber-400 underline">Request Permissions</button>
+            )}
+          </div>
+          <div className="grid gap-4">
+             <div className="flex items-center justify-between p-7 bg-white/[0.05] border border-white/10 rounded-3xl backdrop-blur-md shadow-lg hover:border-white/20 transition-all">
+                <div className="space-y-1">
+                   <h3 className="font-bold text-white text-base drop-shadow-sm">Advance Reminders</h3>
+                   <p className="text-xs text-gray-400">15m and 5m alerts before start/end.</p>
+                </div>
+                <ToggleSwitch colorClass={accentBg} active={notificationSettings.advance} onChange={(v) => onUpdateNotifications({...notificationSettings, advance: v})} />
+             </div>
+             <div className="flex items-center justify-between p-7 bg-white/[0.05] border border-white/10 rounded-3xl backdrop-blur-md shadow-lg hover:border-white/20 transition-all">
+                <div className="space-y-1">
+                   <h3 className="font-bold text-white text-base drop-shadow-sm">Event Boundary Alerts</h3>
+                   <p className="text-xs text-gray-400">Notify exactly at start and end times.</p>
+                </div>
+                <ToggleSwitch colorClass={accentBg} active={notificationSettings.boundaries} onChange={(v) => onUpdateNotifications({...notificationSettings, boundaries: v})} />
+             </div>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <label className={`text-[11px] font-black ${accentBase} tracking-[0.4em] ml-2 uppercase drop-shadow-sm`}>Sensory Engine</label>
+          <div className="grid gap-4">
+             <div className="flex items-center justify-between p-7 bg-white/[0.05] border border-white/10 rounded-3xl backdrop-blur-md shadow-lg hover:border-white/20 transition-all">
+                <div className="space-y-1">
+                   <h3 className="font-bold text-white text-base drop-shadow-sm">Haptic Feedback</h3>
+                   <p className="text-xs text-gray-400">Vibrate for 5s at task boundaries.</p>
+                </div>
+                <ToggleSwitch colorClass={accentBg} active={vibrationEnabled} onChange={onUpdateVibration} />
+             </div>
+          </div>
+        </div>
+
+        <div className="pt-8">
+           <button 
+             onClick={() => { localStorage.clear(); window.location.reload(); }}
+             className="w-full py-6 bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 rounded-3xl text-rose-500 text-xs font-black uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-3 shadow-[0_10px_40px_rgba(244,63,94,0.15)]"
+           >
+             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+             Secure Sign Out
+           </button>
+        </div>
       </div>
     </div>
   );
@@ -509,6 +567,11 @@ const ThemeViewComponent: React.FC<{
   const particleTypes = [
     { id: 'meteors', label: 'Stellar Stream', icon: '✨' },
     { id: 'leaves', label: 'Dream cloud', icon: '☁️' }
+  ];
+
+  const journalStyles = [
+    { id: 'astral', label: 'Astral Glass', desc: 'Luminous translucent aesthetic' },
+    { id: 'mono', label: 'Deep Ink', desc: 'Pure minimal dark mode' }
   ];
 
   return (
@@ -544,6 +607,74 @@ const ThemeViewComponent: React.FC<{
         </div>
 
         <div className="space-y-6">
+          <label className={`text-[11px] font-black ${accentBase} tracking-[0.4em] ml-2 uppercase`}>Journal Aesthetic</label>
+          <div className="grid gap-4">
+            {journalStyles.map((style) => (
+              <button 
+                key={style.id}
+                onClick={() => onUpdateTheme({ ...theme, journalStyle: style.id as any })}
+                className={`w-full p-6 rounded-3xl border transition-all flex flex-col items-start gap-1 group ${theme.journalStyle === style.id ? 'border-white/50 bg-white/15 shadow-2xl scale-[1.02]' : 'border-white/5 bg-white/[0.03] hover:border-white/25'}`}
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span className={`font-bold text-lg ${theme.journalStyle === style.id ? 'text-white drop-shadow-[0_0_12px_rgba(255,255,255,0.3)]' : 'text-gray-400 group-hover:text-gray-200'}`}>{style.label}</span>
+                  {theme.journalStyle === style.id && (
+                    <div className={`w-5 h-5 rounded-full ${accentBg} flex items-center justify-center shadow-[0_0_15px_rgba(255,255,255,0.5)]`}>
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                  )}
+                </div>
+                <span className="text-[10px] font-medium text-gray-500 group-hover:text-gray-400 uppercase tracking-widest">{style.desc}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <label className={`text-[11px] font-black ${accentBase} tracking-[0.4em] ml-2 uppercase`}>Journal Dynamic Effects</label>
+          <div className="space-y-4">
+            <div className="p-7 bg-white/[0.05] border border-white/10 rounded-3xl backdrop-blur-md flex items-center justify-between shadow-lg">
+              <div className="space-y-1">
+                 <h3 className="font-bold text-white text-base drop-shadow-sm">Mood Star Aura</h3>
+                 <p className="text-xs text-gray-400">Growth of the Heart visualization</p>
+              </div>
+              <ToggleSwitch colorClass={accentBg} active={theme.showMoodStar} onChange={(v) => onUpdateTheme({ ...theme, showMoodStar: v })} />
+            </div>
+            <div className="p-7 bg-white/[0.05] border border-white/10 rounded-3xl backdrop-blur-md flex items-center justify-between shadow-lg">
+              <div className="space-y-1">
+                 <h3 className="font-bold text-white text-base drop-shadow-sm">Aetheric Resonance</h3>
+                 <p className="text-xs text-gray-400">Emotional pulse engine</p>
+              </div>
+              <ToggleSwitch colorClass={accentBg} active={theme.showResonance} onChange={(v) => onUpdateTheme({ ...theme, showResonance: v })} />
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <label className={`text-[11px] font-black ${accentBase} tracking-[0.4em] ml-2 uppercase`}>Environment</label>
+          <div className="space-y-4">
+            {presets.map((preset) => (
+              <button 
+                key={preset.id}
+                onClick={() => onUpdateTheme({ ...theme, backgroundPreset: preset.id })}
+                className={`w-full p-6 rounded-[2.5rem] border transition-all flex items-center justify-between group ${theme.backgroundPreset === preset.id ? 'border-white/50 bg-white/15 shadow-[0_20px_60px_rgba(0,0,0,0.6)]' : 'border-white/5 bg-white/[0.03] hover:border-white/25'}`}
+              >
+                <div className="flex items-center gap-5">
+                  <div className="w-14 h-14 rounded-2xl border border-white/25 overflow-hidden shadow-[inset_0_0_20px_rgba(0,0,0,0.5)]" style={{ background: preset.bg }}>
+                     <div className="w-full h-full bg-gradient-to-br from-white/15 to-transparent" />
+                  </div>
+                  <span className={`font-bold text-lg ${theme.backgroundPreset === preset.id ? 'text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]' : 'text-gray-400 group-hover:text-gray-200'}`}>{preset.label}</span>
+                </div>
+                {theme.backgroundPreset === preset.id && (
+                  <div className={`w-6 h-6 rounded-full ${accentBg} flex items-center justify-center shadow-[0_0_15px_rgba(255,255,255,0.5)]`}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4"><polyline points="20 6 9 17 4 12"/></svg>
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-6">
           <label className={`text-[11px] font-black ${accentBase} tracking-[0.4em] ml-2 uppercase`}>Atmospheric Effects</label>
           <div className="space-y-4">
             <div className="p-7 bg-white/[0.05] border border-white/10 rounded-3xl backdrop-blur-md flex items-center justify-between shadow-lg">
@@ -553,6 +684,21 @@ const ThemeViewComponent: React.FC<{
               </div>
               <ToggleSwitch colorClass={accentBg} active={theme.showParticles} onChange={(v) => onUpdateTheme({ ...theme, showParticles: v })} />
             </div>
+            
+            {theme.showParticles && (
+              <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                {particleTypes.map((type) => (
+                  <button 
+                    key={type.id}
+                    onClick={() => onUpdateTheme({ ...theme, particleType: type.id })}
+                    className={`p-6 rounded-3xl border transition-all flex flex-col items-center gap-3 shadow-xl ${theme.particleType === type.id ? 'bg-white/20 border-white/60 shadow-[0_0_30px_rgba(255,255,255,0.15)] scale-[1.05]' : 'bg-white/[0.02] border-white/10 hover:border-white/30'}`}
+                  >
+                    <span className="text-2xl drop-shadow-[0_0_10px_rgba(255,255,255,0.4)]">{type.icon}</span>
+                    <span className={`text-[10px] font-black uppercase tracking-widest ${theme.particleType === type.id ? 'text-white drop-shadow-sm' : 'text-gray-400'}`}>{type.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -605,6 +751,7 @@ const CalendarListView: React.FC<{
                     </div>
                   </div>
                   {!isPast && (<button onClick={() => onAddTask(day.date)} className={`ml-4 w-12 h-12 rounded-full flex items-center justify-center transition-all active:scale-90 border-2 ${isToday && !isMoodView ? 'bg-white/45 border-white/70 text-white backdrop-blur-xl shadow-[0_0_25px_rgba(255,255,255,0.3)]' : 'bg-white/30 border-white/50 text-gray-100 hover:text-white shadow-[0_0_20px_rgba(0,0,0,0.4)]'}`}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>)}
+                  {isToday && isMoodView && (<div className="absolute -top-1.5 -right-1.5"><div className={`w-4 h-4 rounded-full ${moodColor === '#ffffff' ? accentBg : ''} animate-ping shadow-[0_0_20px_white]`} style={{ backgroundColor: moodColor }} /></div>)}
                 </div>
               );
             })}</div></React.Fragment>
@@ -624,9 +771,9 @@ const TimelineViewComponent: React.FC<{
   theme: ThemeConfig
 }> = ({ selectedDate, currentDayTasks, selectedDateStr, setView, toggleTaskCompletion, onAddTaskAtTime, isReadOnly, theme }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
-  const HOUR_HEIGHT = 120;
+  const HOUR_HEIGHT = 120; // Pixels per hour
   const PX_PER_MIN = HOUR_HEIGHT / 60;
-  const TIMELINE_START_HOUR = 0;
+  const TIMELINE_START_HOUR = 0; // Show full 24h
   const HOURS = Array.from({ length: 24 }, (_, i) => i);
   const accentBase = theme.accentColor.split(' ')[0].replace('bg-', 'text-');
   const accentBg = theme.accentColor.split(' ')[0];
@@ -663,19 +810,38 @@ const TimelineViewComponent: React.FC<{
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden animate-in slide-in-from-left-10 duration-500 relative">
+      {theme.showParticles && theme.particleType === 'meteors' && <StellarStream variant="custom" accentColor={theme.accentColor} />}
+      {theme.showParticles && theme.particleType === 'leaves' && <MapleLeafStream accentColor={theme.accentColor} />}
+      <style>{`
+        @keyframes spine-shimmer { 0%, 100% { opacity: 0.85; filter: brightness(1.2); } 50% { opacity: 1; filter: brightness(2.0) drop-shadow(0 0 15px white); } }
+        @keyframes sweep { 0% { left: -100%; opacity: 0; } 50% { opacity: 0.7; } 100% { left: 200%; opacity: 0; } }
+        @keyframes breathe { 0%, 100% { box-shadow: 0 0 30px -5px rgba(255,255,255,0.3); } 50% { box-shadow: 0 0 55px 8px rgba(255,255,255,0.5); } }
+        .animate-spine-shimmer { animation: spine-shimmer 2.0s ease-in-out infinite; }
+        .group-hover\\:animate-sweep { animation: sweep 1.5s ease-in-out infinite; }
+        .animate-breathe { animation: breathe 4s ease-in-out infinite; }
+      `}</style>
       <div className="px-6 py-8 flex items-center justify-between shrink-0 bg-transparent z-20 relative">
         <div className="flex items-center gap-4">
            <button onClick={() => setView('calendar')} className="p-2.5 bg-white/25 rounded-full text-gray-100 hover:text-white transition-all shadow-[0_0_20px_rgba(255,255,255,0.15)]"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="15 18 9 12 15 6"/></svg></button>
            <h2 className="font-bold text-2xl tracking-tighter text-white drop-shadow-[0_0_12px_rgba(255,255,255,0.3)]">Timeline</h2>
         </div>
+        <div className="flex flex-col items-end">
+          <span className={`text-[10px] font-black uppercase tracking-widest ${accentBase} drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]`}>{selectedDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+          <span className="text-sm font-bold text-gray-300 drop-shadow-sm">{selectedDate.getFullYear()}</span>
+        </div>
       </div>
       <div className="flex-1 overflow-y-auto px-6 pb-32 no-scrollbar relative select-none z-10">
         <div className="relative" style={{ height: `${24 * HOUR_HEIGHT}px` }}>
-          <div className="absolute left-[70px] top-0 bottom-0 w-[2.5px] bg-white/30 z-0" />
+          <div className="absolute left-[70px] top-0 bottom-0 w-[2.5px] bg-white/30 z-0">
+            <div className="absolute inset-0 w-full h-full bg-white/80 animate-spine-shimmer" />
+            <div className="absolute -left-[3px] w-[8px] h-full bg-blue-100/50 blur-[3px] pointer-events-none" />
+            {isToday && (<div className="absolute -left-2.5 w-6 h-6 rounded-full bg-white blur-lg opacity-100 animate-pulse z-40 shadow-[0_0_30px_white]" style={{ top: `${nowTop - 12}px` }} />)}
+          </div>
           {HOURS.map(h => (
             <div key={h} className="absolute w-full flex items-start group" style={{ top: `${h * HOUR_HEIGHT}px`, height: `${HOUR_HEIGHT}px` }}>
               <div className="w-[60px] pr-4 flex flex-col items-end"><span className="text-[10px] font-black text-gray-100 uppercase tracking-widest drop-shadow-sm">{h === 0 ? '12 AM' : h === 12 ? '12 PM' : h > 12 ? `${h-12} PM` : `${h} AM`}</span></div>
               {!isReadOnly && (<div onClick={() => onAddTaskAtTime(`${String(h).padStart(2, '0')}:00`)} className={`flex-1 border-t border-white/25 h-full transition-colors hover:${accentBg}/20 cursor-crosshair group-hover:border-white/60`} />)}
+              {isReadOnly && <div className="flex-1 border-t border-white/10 h-full opacity-20" />}
             </div>
           ))}
           <div className="ml-[72px] relative h-full pointer-events-none">
@@ -685,28 +851,225 @@ const TimelineViewComponent: React.FC<{
               const height = Math.max(task.duration * PX_PER_MIN, 45);
               const width = 100 / task.totalCols;
               const left = task.colIdx * width;
+              const isInProgress = isToday && nowMinutes >= startMin && nowMinutes <= (startMin + task.duration);
               return (
                 <div key={task.id} className={`absolute p-1 transition-all duration-500 pointer-events-auto group ${task.completed ? 'opacity-60 grayscale-[0.2]' : ''}`} style={{ top: `${top}px`, height: `${height}px`, left: `${left}%`, width: `${width}%` }} onClick={() => !isReadOnly && toggleTaskCompletion(selectedDateStr, task.id)}>
-                  <div className={`w-full h-full rounded-[1.5rem] p-4 flex flex-col justify-between shadow-xl border border-white/45 backdrop-blur-md overflow-hidden relative group-hover:brightness-110 group-hover:scale-[1.04] transition-all duration-500 ${task.color.split(' ')[0]}`}>
+                  <div className="absolute -left-4 top-[1.5rem] h-[2.5px] bg-gradient-to-r from-white to-transparent opacity-80 transition-all duration-300 group-hover:w-10 group-hover:opacity-100 group-hover:from-white group-hover:shadow-[0_0_20px_white]" style={{ width: '18px' }} />
+                  <div className={`w-full h-full rounded-[1.5rem] p-4 flex flex-col justify-between shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/45 backdrop-blur-md overflow-hidden relative group-hover:brightness-110 group-hover:scale-[1.04] group-hover:-translate-y-1 transition-all duration-500 ${task.color.split(' ')[0]} ${isInProgress && !task.completed ? 'animate-breathe shadow-[0_0_40px_rgba(255,255,255,0.35)]' : ''}`}>
+                    <div className="absolute top-0 bottom-0 w-12 bg-gradient-to-r from-transparent via-white/40 to-transparent -skew-x-[35deg] pointer-events-none opacity-0 group-hover:animate-sweep" />
                     <div className="flex justify-between items-start gap-2 relative z-10">
                       <div className="overflow-hidden"><h3 className={`font-bold text-white text-sm leading-tight truncate drop-shadow-sm ${task.completed ? 'line-through' : ''}`}>{task.title}</h3><p className="text-[9px] font-bold text-white uppercase tracking-widest mt-0.5 opacity-95 drop-shadow-sm">{task.startTime} • {task.duration}m</p></div>
-                      <span className="text-xl shrink-0 drop-shadow-[0_0_12px_rgba(0,0,0,0.4)]">{task.icon}</span>
+                      <span className="text-xl shrink-0 drop-shadow-[0_0_12px_rgba(0,0,0,0.4)] group-hover:scale-135 transition-transform duration-500">{task.icon}</span>
                     </div>
+                    {task.duration > 30 && (<div className="mt-auto pt-2 opacity-0 group-hover:opacity-100 transition-opacity duration-500 relative z-10"><div className={`h-1.5 rounded-full bg-black/45 w-full overflow-hidden shadow-inner`}><div className={`h-full bg-white transition-all shadow-[0_0_15px_white]`} style={{ width: task.completed ? '100%' : '25%' }} /></div></div>)}
                   </div>
                 </div>
               );
             })}
           </div>
+          {isToday && nowTop > 0 && nowTop < (24 * HOUR_HEIGHT) && (
+            <div className="absolute left-0 right-0 z-30 flex items-center pointer-events-none animate-in fade-in zoom-in duration-500" style={{ top: `${nowTop}px` }}>
+               <div className="w-[60px] pr-4 flex justify-end"><span className="px-2 py-1 rounded-md bg-rose-500 text-[9px] font-black text-white uppercase shadow-[0_0_35px_rgba(244,63,94,0.7)] border border-white/40">Now</span></div>
+               <div className="relative flex-1"><div className="h-[4.5px] w-full bg-rose-500 shadow-[0_0_50px_rgba(244,63,94,1)]" /><div className="absolute left-0 -top-[8px] w-[20px] h-[20px] rounded-full bg-rose-500 border-2 border-white shadow-[0_0_20px_rgba(244,63,94,0.9)]" /></div>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 };
 
+const GoalViewComponent: React.FC<{ goals: Record<string, string>, updateGoal: (t: string, v: string) => void, isReadOnly: boolean, theme: ThemeConfig }> = ({ goals, updateGoal, isReadOnly, theme }) => {
+  const goalTypes = [
+    { id: '1week', label: '1 Week Goal', icon: '🌱', color: 'from-emerald-400 to-teal-600', glow: 'rgba(52, 211, 153, 0.6)' },
+    { id: '1month', label: '1 Month Goal', icon: '🌿', color: 'from-blue-400 to-indigo-600', glow: 'rgba(96, 165, 250, 0.6)' },
+    { id: '6month', label: '6 Month Goal', icon: '🌳', color: 'from-purple-400 to-fuchsia-600', glow: 'rgba(192, 132, 252, 0.6)' },
+    { id: '1year', label: '1 Year Goal', icon: '⛰️', color: 'from-amber-400 to-orange-600', glow: 'rgba(251, 191, 36, 0.6)' }
+  ];
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden animate-in zoom-in-95 duration-500 p-6 space-y-8 no-scrollbar overflow-y-auto pb-32 bg-transparent relative">
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150%] h-[150%] bg-blue-600/15 blur-[160px] pointer-events-none z-0 rounded-full" />
+      {theme.showParticles && theme.particleType === 'meteors' && <StellarStream variant="gold" />}
+      {theme.showParticles && theme.particleType === 'leaves' && <MapleLeafStream accentColor={theme.accentColor} />}
+      <div className="shrink-0 space-y-2 relative z-10">
+        <h2 className="text-4xl font-bold tracking-tighter text-white drop-shadow-[0_0_45px_rgba(255,255,255,0.4)]">{isReadOnly ? 'Record of Goals' : 'Life Targets'}</h2>
+        <p className="text-sm font-medium text-gray-200 uppercase tracking-[0.3em] opacity-90 drop-shadow-lg">{isReadOnly ? 'Historical Focus' : 'Define your path forward'}</p>
+      </div>
+      <div className="grid gap-6 relative z-10">
+        {goalTypes.map((type) => (
+          <div key={type.id} className="relative group">
+            <div className={`absolute -inset-3 bg-gradient-to-r ${type.color} rounded-[2.5rem] blur-[40px] opacity-30 group-hover:opacity-50 transition duration-1000`}></div>
+            <div className={`absolute -inset-1.5 bg-gradient-to-r ${type.color} rounded-[2.5rem] blur-xl opacity-40 group-hover:opacity-75 transition duration-700`}></div>
+            <div className={`relative flex flex-col p-8 bg-white/[0.12] border border-white/25 rounded-[2.5rem] space-y-5 shadow-[0_20px_80px_rgba(0,0,0,0.7)] backdrop-blur-3xl transition-all ${isReadOnly ? 'grayscale-[0.4] opacity-80' : 'group-hover:bg-white/[0.22] group-hover:border-white/50'}`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="relative"><div className="absolute inset-0 bg-white/40 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity rounded-full" /><div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center text-3xl border border-white/30 shadow-[inset_0_0_15px_rgba(255,255,255,0.3)] group-hover:scale-120 group-hover:rotate-6 transition-all duration-500 z-10 relative">{type.icon}</div></div>
+                  <span className="text-[12px] font-black uppercase tracking-[0.4em] text-white transition-all duration-500 drop-shadow-md" style={{ textShadow: `0 0 25px ${type.glow}` }}>{type.label}</span>
+                </div>
+              </div>
+              <textarea readOnly={isReadOnly} className={`w-full bg-transparent border-none p-0 text-lg font-medium outline-none placeholder:text-gray-400 resize-none h-24 transition-colors ${isReadOnly ? 'text-gray-300' : 'text-white focus:text-white drop-shadow-[0_0_12px_rgba(255,255,255,0.2)]'}`} placeholder={isReadOnly ? "No targets set for this period." : `What's your vision for ${type.label.toLowerCase()}?`} value={goals[type.id] || ''} onChange={(e) => updateGoal(type.id, e.target.value)} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const AudioPlayer: React.FC<{ src: string, onDelete?: () => void, isReadOnly: boolean, accentColor?: string }> = ({ src, onDelete, isReadOnly, accentColor = "bg-blue-600" }) => {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
+  const animationIdRef = useRef<number | null>(null);
+  const smoothedAmplitude = useRef<number>(0.2);
+  const amplitudeVelocity = useRef<number>(0);
+  const timeRef = useRef<number>(0);
+  const idlePhase = useRef<number>(0);
+  const ribbonCount = 12;
+  const ribbonPhases = useRef<number[]>(Array.from({ length: ribbonCount }, () => Math.random() * 1000));
+  const ribbonSpeeds = useRef<number[]>(Array.from({ length: ribbonCount }, () => 0.5 + Math.random() * 0.5));
+  useEffect(() => { return () => { if (animationIdRef.current) cancelAnimationFrame(animationIdRef.current); if (audioCtxRef.current) audioCtxRef.current.close(); }; }, []);
+  const drawVolumetricAura = useCallback(() => {
+    if (!canvasRef.current) return;
+    const canvas = canvasRef.current; const ctx = canvas.getContext('2d')!;
+    const draw = () => {
+      animationIdRef.current = requestAnimationFrame(draw); timeRef.current += 0.012; idlePhase.current += 0.001; let bass = 0, mids = 0, highs = 0;
+      if (analyserRef.current) {
+        const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount); analyserRef.current.getByteFrequencyData(dataArray);
+        const bEnd = Math.floor(dataArray.length * 0.1), mEnd = Math.floor(dataArray.length * 0.4);
+        for (let i = 0; i < bEnd; i++) bass += dataArray[i];
+        for (let i = bEnd; i < mEnd; i++) mids += dataArray[i];
+        for (let i = mEnd; i < dataArray.length; i++) highs += dataArray[i];
+        bass = (bass / bEnd) / 255; mids = (mids / (mEnd - bEnd)) / 255; highs = (highs / (dataArray.length - mEnd)) / 255;
+      }
+      const targetAmp = 0.2 + (Math.pow(mids, 1.2) * 5.5) + (bass * 0.6) + (Math.sin(idlePhase.current * 0.5) * 0.05);
+      const isRising = targetAmp > smoothedAmplitude.current, springK = isRising ? 0.65 : 0.15, damping = isRising ? 0.7 : 0.95;
+      const force = (targetAmp - smoothedAmplitude.current) * springK; amplitudeVelocity.current += force; amplitudeVelocity.current *= damping; smoothedAmplitude.current += amplitudeVelocity.current;
+      ctx.clearRect(0, 0, canvas.width, canvas.height); const width = canvas.width, centerY = canvas.height / 2;
+      for (let r = 0; r < ribbonCount; r++) {
+        const baseTime = timeRef.current, nR = r / ribbonCount, ribbonTime = baseTime + ribbonPhases.current[r], localSpeed = ribbonSpeeds.current[r], auraOffset = (nR - 0.5) * (canvas.height * 0.9) * smoothedAmplitude.current, parallax = ribbonTime * 0.8 * localSpeed;
+        const drawPass = (pass: 'nebula' | 'core') => {
+          ctx.beginPath(); ctx.globalCompositeOperation = 'screen'; let alpha, weight, blur;
+          if (pass === 'nebula') { alpha = 0.015 * (1 - nR * 0.5); weight = 32; blur = 20; } else { alpha = 0.6 / (1 + r * 0.15); weight = 1.6; blur = 0; }
+          const h = 200 + (r * 4) + (bass * 60), s = 85 + (highs * 15), l = 50 + (nR * 5) + (smoothedAmplitude.current * 20);
+          const gradient = ctx.createLinearGradient(0, 0, width, 0); gradient.addColorStop(0, `hsla(${h}, ${s}%, ${l}%, 0)`); gradient.addColorStop(0.3, `hsla(${h}, ${s}%, ${l}%, ${alpha})`); gradient.addColorStop(0.7, `hsla(${h}, ${s}%, ${l}%, ${alpha})`); gradient.addColorStop(1, `hsla(${h}, ${s}%, ${l}%, 0)`);
+          ctx.strokeStyle = gradient; ctx.lineWidth = weight; if (blur) ctx.filter = `blur(${blur}px)`;
+          for (let x = 0; x <= width; x += 6) {
+            const nX = x / width, window = Math.pow(Math.sin(nX * Math.PI), 1.5), staticCurve = Math.sin(nX * Math.PI * 0.7 + ribbonPhases.current[r] * 0.1) * 0.2, torsion = Math.sin(ribbonTime * 1.5 + nX * 3) * highs * 1.2, h1 = Math.sin(nX * Math.PI * 0.6 + parallax + torsion + staticCurve), h2 = Math.sin(nX * Math.PI * 1.4 - parallax * 0.5), amp = (smoothedAmplitude.current + 0.15) * (canvas.height * 0.6), yOffset = (h1 * 0.5 + h2 * 0.3) * amp * window, y = centerY + yOffset + auraOffset;
+            if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+          }
+          ctx.stroke(); ctx.filter = 'none';
+        };
+        drawPass('nebula'); drawPass('core');
+      }
+      ctx.globalCompositeOperation = 'source-over';
+    };
+    draw();
+  }, []);
+  const togglePlay = () => {
+    if (!audioRef.current) return;
+    if (!audioCtxRef.current) { audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)(); analyserRef.current = audioCtxRef.current.createAnalyser(); analyserRef.current.fftSize = 512; sourceRef.current = audioCtxRef.current.createMediaElementSource(audioRef.current); sourceRef.current.connect(analyserRef.current); analyserRef.current.connect(audioCtxRef.current.destination); }
+    if (isPlaying) audioRef.current.pause(); else { if (audioCtxRef.current.state === 'suspended') audioCtxRef.current.resume(); audioRef.current.play(); }
+    setIsPlaying(!isPlaying);
+  };
+  useEffect(() => { drawVolumetricAura(); return () => { if (animationIdRef.current) cancelAnimationFrame(animationIdRef.current); }; }, [drawVolumetricAura]);
+  return (<div className="flex items-center gap-4 bg-transparent border-none p-4 rounded-3xl group transition-all"><button onClick={togglePlay} className={`w-12 h-12 shrink-0 rounded-full ${accentColor} flex items-center justify-center text-white active:scale-90 transition-all shadow-lg z-10`}>{isPlaying ? (<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>) : (<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className="ml-1"><polygon points="5 3 19 12 5 21 5 3"/></svg>)}</button><div className="flex-1 h-24 flex flex-col justify-center gap-0.5 relative"><canvas ref={canvasRef} width={800} height={200} className="w-full h-24 opacity-100 pointer-events-none"/><p className="absolute bottom-0 left-2 text-[9px] font-black text-gray-200 uppercase tracking-widest leading-none">Voice Memory</p></div>{!isReadOnly && onDelete && (<button onClick={onDelete} className="p-2 text-gray-200 hover:text-rose-400 transition-colors opacity-0 group-hover:opacity-100 z-10"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>)}<audio ref={audioRef} src={src} onEnded={() => setIsPlaying(false)} className="hidden" crossOrigin="anonymous" /></div>);
+};
+
+const JournalViewComponent: React.FC<{ 
+  selectedDateStr: string, 
+  currentMoodId: string, 
+  setMoodForDate: (d: string, m: string) => void, 
+  journalEntries: Record<string, string>, 
+  updateJournalEntry: (d: string, t: string) => void, 
+  currentImages: string[], 
+  fileInputRef: React.RefObject<HTMLInputElement | null>, 
+  handleImageUpload: (e: React.ChangeEvent<HTMLInputElement>) => void, 
+  removeImage: (d: string, i: number, e: React.MouseEvent) => void, 
+  currentAudios: string[], 
+  addAudio: (d: string, a: string) => void, 
+  removeAudio: (d: string, i: number) => void, 
+  setPreviewImage: (i: string) => void, 
+  isReadOnly: boolean,
+  theme: ThemeConfig
+}> = ({ selectedDateStr, currentMoodId, setMoodForDate, journalEntries, updateJournalEntry, currentImages, fileInputRef, handleImageUpload, removeImage, currentAudios, addAudio, removeAudio, setPreviewImage, isReadOnly, theme }) => {
+  const currentMood = useMemo(() => MOOD_OPTIONS.find(m => m.id === currentMoodId) || MOOD_OPTIONS[2], [currentMoodId]);
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const accentBase = theme.accentColor.split(' ')[0].replace('bg-', 'text-');
+  const accentBg = theme.accentColor.split(' ')[0];
+
+  const getStyleClasses = useCallback(() => {
+    switch (theme.journalStyle) {
+      case 'mono': return {
+        container: 'bg-black border-none shadow-none',
+        card: 'bg-[#0a0a0a] border-white/5 rounded-none shadow-none',
+        text: 'text-white/80 font-light tracking-wide',
+        glow: 'hidden'
+      };
+      default: return {
+        container: 'bg-white/[0.03] border-white/10 backdrop-blur-3xl',
+        card: 'bg-white/[0.12] border-white/20 backdrop-blur-md rounded-[2.5rem]',
+        text: 'text-white font-medium',
+        glow: 'opacity-30'
+      };
+    }
+  }, [theme.journalStyle]);
+
+  const styles = getStyleClasses();
+
+  const startRecording = async () => { 
+    try { 
+      if (!navigator.mediaDevices?.getUserMedia) return; 
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); 
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'; 
+      const mediaRecorder = new MediaRecorder(stream, { mimeType }); 
+      mediaRecorderRef.current = mediaRecorder; 
+      audioChunksRef.current = []; 
+      mediaRecorder.ondataavailable = (event: any) => { if (event.data && (event.data as any).size > 0) audioChunksRef.current.push(event.data as Blob); }; 
+      mediaRecorder.onstop = () => { 
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType }); 
+        const reader = new FileReader(); reader.readAsDataURL(audioBlob); 
+        reader.onloadend = () => { addAudio(selectedDateStr, reader.result as string); }; 
+        stream.getTracks().forEach(track => track.stop()); 
+      }; 
+      mediaRecorder.start(); setIsRecording(true); 
+    } catch (err) { console.error("Recording error:", err); } 
+  };
+
+  return (
+    <div className={`flex-1 flex flex-col overflow-hidden animate-in slide-in-from-right-10 duration-700 relative transition-all duration-1000 ${styles.container}`}>
+      <div className={`absolute inset-0 transition-all duration-1000 pointer-events-none z-0 ${styles.glow}`} style={{ backgroundColor: theme.journalStyle === 'mono' ? 'transparent' : currentMood.aura }} />
+      {theme.showResonance && <AethericResonance aura={currentMood.aura} moodId={currentMoodId} />}
+      {theme.showMoodStar && (
+        <div className="absolute -top-16 -right-16 w-80 h-80 opacity-40 transition-all duration-1000 pointer-events-none z-0">
+          <MoodStar moodId={currentMoodId} isReadOnly={isReadOnly} onMoodSelect={(id) => setMoodForDate(selectedDateStr, id)} minimal={true} />
+        </div>
+      )}
+      <div className="px-6 py-8 shrink-0 relative z-10"><h2 className={`font-bold text-4xl tracking-tighter ${styles.text.split(' ')[0]}`} style={{ textShadow: `0 0 30px ${currentMood.aura}60` }}>Daily Journal</h2>{!isReadOnly && (<div className="w-full mt-4"><div className="relative h-12 flex flex-col justify-center"><div className="relative w-full h-1.5 bg-white/20 rounded-full overflow-visible"><div className="absolute left-0 top-0 h-full transition-all duration-700 rounded-full shadow-[0_0_10px_white]" style={{ width: `${(MOOD_OPTIONS.findIndex(m => m.id === currentMoodId) / (MOOD_OPTIONS.length - 1)) * 100}%`, backgroundColor: currentMood.aura }} /><div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 flex justify-between px-0">{MOOD_OPTIONS.map((m) => (<button key={m.id} onClick={() => setMoodForDate(selectedDateStr, m.id)} className="relative z-10 w-8 h-8 flex items-center justify-center"><div className={`w-3.5 h-3.5 rounded-full transition-all duration-500 border ${currentMoodId === m.id ? 'bg-white border-white scale-150 shadow-[0_0_15px_white]' : 'bg-transparent border-white/40 hover:border-white/70'}`} /></button>))}</div></div><div className="mt-8 self-start"><div className={`backdrop-blur-md px-5 py-2.5 rounded-full border shadow-xl flex items-center justify-center min-w-[100px] transition-all duration-500 ${currentMoodId === 'none' ? 'bg-white/40 border-white/50' : 'bg-white/20 border-white/20'}`}><span className="text-[11px] font-black uppercase tracking-[0.2em] drop-shadow-sm" style={{ color: currentMoodId === 'none' ? '#FFFFFF' : currentMood.aura, textShadow: currentMoodId === 'none' ? '0 0 10px rgba(255,255,255,0.5)' : '0 1px 2px rgba(0,0,0,0.5)' }}>{currentMood.label}</span></div></div></div></div>)}</div>
+      <div className="flex-1 px-6 space-y-10 overflow-y-auto no-scrollbar pb-32 relative z-10 mt-6">
+        <div className="space-y-4 relative group"><label className={`text-[11px] font-bold ${accentBase} tracking-[0.4em] ml-2 uppercase`}>Audio Journal</label><div className="relative"><div className={`absolute -inset-0.5 rounded-[2.5rem] blur-md opacity-30 ${theme.journalStyle === 'mono' ? 'hidden' : ''}`} style={{ background: currentMood.aura }}></div><div className={`relative p-6 space-y-6 transition-all duration-1000 ${styles.card}`}>{!isReadOnly && (<button onClick={isRecording ? () => { mediaRecorderRef.current?.stop(); setIsRecording(false); } : startRecording} className={`w-full py-6 rounded-3xl flex items-center justify-center gap-4 transition-all active:scale-95 border-2 ${isRecording ? 'bg-rose-500/30 border-rose-500 text-white animate-pulse shadow-[0_0_25px_rgba(244,63,94,0.4)]' : 'bg-white/10 border-white/30 text-white hover:border-white/50'}`}><div className={`w-4 h-4 rounded-full ${isRecording ? 'bg-rose-500 shadow-[0_0_12px_rose]' : 'bg-gray-400'}`} /><span className="text-[11px] font-black uppercase tracking-widest">{isRecording ? 'Stop Recording Memory...' : 'Tap to Capture Voice Journal'}</span></button>)}<div className="grid gap-4">{currentAudios.map((audio, idx) => (<AudioPlayer key={idx} src={audio} isReadOnly={isReadOnly} accentColor={accentBg} onDelete={() => removeAudio(selectedDateStr, idx)} />))}{currentAudios.length === 0 && (<div className="py-8 text-center text-gray-200 border border-dashed border-white/20 rounded-3xl bg-white/[0.04]"><p className="text-[10px] font-black uppercase tracking-widest opacity-60">No voice recordings preserved</p></div>)}</div></div></div></div>
+        <div className="space-y-4 relative group"><label className={`text-[11px] font-bold ${accentBase} tracking-[0.4em] ml-2 uppercase`}>Day's Perspective</label><div className="relative"><div className={`absolute -inset-0.5 rounded-[2.5rem] blur-md opacity-30 ${theme.journalStyle === 'mono' ? 'hidden' : ''}`} style={{ background: currentMood.aura }}></div><div className={`relative p-2 overflow-hidden shadow-2xl transition-all duration-1000 ${styles.card}`}><textarea readOnly={isReadOnly} className={`w-full h-48 bg-transparent p-6 text-lg outline-none transition-all placeholder:text-gray-400 resize-none ${styles.text}`} placeholder={isReadOnly ? "No written perspective for this day." : "Transcribe your day into memory..."} value={journalEntries[selectedDateStr] || ''} onChange={(e) => updateJournalEntry(selectedDateStr, e.target.value)} /></div></div></div>
+        <div className="space-y-4 pb-10 relative group"><div className="flex items-center justify-between ml-2"><label className={`text-[11px] font-bold ${accentBase} tracking-[0.4em] uppercase`}>Visual Records</label>{!isReadOnly && (<><button onClick={() => fileInputRef.current?.click()} className={`px-5 py-2 ${accentBg}/30 border border-white/20 rounded-full text-[10px] font-black uppercase tracking-widest text-white shadow-lg`}>Preserve Photo</button><input type="file" autoFocus={false} ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={handleImageUpload} /></>)}</div><div className="relative"><div className={`absolute -inset-0.5 rounded-[2.5rem] blur-md opacity-30 ${theme.journalStyle === 'mono' ? 'hidden' : ''}`} style={{ background: currentMood.aura }}></div><div className={`relative p-6 min-h-[160px] flex items-center justify-center transition-all duration-1000 ${styles.card}`}>{currentImages.length > 0 ? (<div className="grid grid-cols-2 gap-4 w-full">{currentImages.map((img, idx) => (<div key={idx} onClick={() => setPreviewImage(img)} className={`relative aspect-square rounded-2xl overflow-hidden border border-white/30 cursor-pointer hover:scale-[1.03] transition-transform shadow-lg`}><img src={img} alt="" className="w-full h-full object-cover" />{!isReadOnly && (<button onClick={(e) => removeImage(selectedDateStr, idx, e)} className="absolute top-2 right-2 p-2 bg-black/80 rounded-lg text-white opacity-0 group-hover:opacity-100 transition-opacity border border-white/20"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>)}</div>))}</div>) : (!isReadOnly ? (<button onClick={() => fileInputRef.current?.click()} className="w-full py-12 rounded-3xl border-2 border-dashed border-white/20 bg-white/[0.04] flex flex-col items-center gap-4 group/btn"><div className="p-4 bg-white/20 rounded-2xl text-gray-100 group-hover/btn:text-white transition-colors shadow-inner"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="5" ry="5"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div><p className="text-[10px] font-black text-gray-300 uppercase tracking-[0.3em]">Save a Moment</p></button>) : (<p className="text-[10px] font-black uppercase tracking-widest opacity-60 text-center">No visual memories preserved</p>))}</div></div></div>
+      </div>
+    </div>
+  );
+};
+
 const App: React.FC = () => {
-  const [view, setView] = useState<'home' | 'calendar' | 'timeline' | 'settings' | 'theme'>('home');
+  const [view, setView] = useState<'home' | 'goal' | 'calendar' | 'timeline' | 'journal' | 'profile' | 'settings' | 'theme'>('home');
   const [tasks, setTasks] = useState<Record<string, Task[]>>({});
   const [moods, setMoods] = useState<Record<string, string>>({});
+  const [journalEntries, setJournalEntries] = useState<Record<string, string>>({});
+  const [journalImages, setJournalImages] = useState<Record<string, string[]>>({});
+  const [journalAudios, setJournalAudios] = useState<Record<string, string[]>>({});
+  const [goals, setGoals] = useState<Record<string, string>>({ '1week': '', '1month': '', '6month': '', '1year': '' });
+  const [calendarMode, setCalendarMode] = useState<'normal' | 'mood'>('normal');
+
   const [themeConfig, setThemeConfig] = useState<ThemeConfig>({
     accentColor: COLORS[0],
     backgroundPreset: 'midnight',
@@ -719,15 +1082,20 @@ const App: React.FC = () => {
 
   const [profileImage, setProfileImage] = useState<string>(DEFAULT_AVATAR);
   const [userName, setUserName] = useState<string>("Jordan N.");
+  const [notifSettings, setNotifSettings] = useState({ advance: true, boundaries: true });
+  const [vibrationEnabled, setVibrationEnabled] = useState(true);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [months, setMonths] = useState<MonthData[]>([]);
   const [forcedStartTime, setForcedStartTime] = useState<string | undefined>(undefined);
-  const [calendarMode, setCalendarMode] = useState<'normal' | 'mood'>('normal');
   
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const todayRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
   
   const todayAtMidnight = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d; }, []);
   const isPastDate = useCallback((date: Date) => { const d = new Date(date); d.setHours(0, 0, 0, 0); return d.getTime() < todayAtMidnight.getTime(); }, [todayAtMidnight]);
@@ -742,6 +1110,8 @@ const App: React.FC = () => {
     return { month, year, days };
   }, []);
 
+  const sentinels = useRef<Set<string>>(new Set());
+
   useEffect(() => {
     const yearMonths: MonthData[] = []; for (let i = 0; i < 12; i++) yearMonths.push(generateMonthData(i, selectedYear)); setMonths(yearMonths);
     const hydrate = (key: string, setter: Function) => {
@@ -750,11 +1120,59 @@ const App: React.FC = () => {
     };
     hydrate('chronos_tasks', setTasks);
     hydrate('chronos_moods', setMoods);
+    hydrate('chronos_journal', setJournalEntries);
+    hydrate('chronos_journal_images', setJournalImages);
+    hydrate('chronos_journal_audios', setJournalAudios);
+    hydrate('chronos_goals', setGoals);
     hydrate('chronos_profile_image', setProfileImage);
     hydrate('chronos_user_name', setUserName);
+    hydrate('chronos_notif_settings', setNotifSettings);
+    hydrate('chronos_vibration_enabled', setVibrationEnabled);
     hydrate('chronos_theme_config', setThemeConfig);
     hydrate('chronos_calendar_mode', setCalendarMode);
   }, [selectedYear, generateMonthData]);
+
+  useEffect(() => {
+    const presets: Record<string, string> = {
+        midnight: 'radial-gradient(circle at 50% 0%, #161821 0%, #090A0D 100%)',
+        cosmic: 'radial-gradient(circle at 50% 0%, #1e1b4b 0%, #020617 100%)',
+        obsidian: '#000000'
+    };
+    document.body.style.background = presets[themeConfig.backgroundPreset] || presets.midnight;
+    document.body.style.backgroundAttachment = 'fixed';
+  }, [themeConfig.backgroundPreset]);
+
+  useEffect(() => {
+    const checkAlerts = () => {
+      const now = new Date(); const dateKey = formatDateKey(now);
+      const todayTasks = tasks[dateKey] || []; const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      todayTasks.forEach(task => {
+        const [h, m] = task.startTime.split(':').map(Number);
+        const startMins = h * 60 + m; const endMins = startMins + task.duration;
+        const checkTime = (targetMins: number, label: string, isActual: boolean) => {
+          const diff = targetMins - currentMinutes; const key = `${task.id}-${label}`;
+          if (diff === 0 && !sentinels.current.has(key)) {
+            sentinels.current.add(key);
+            if (typeof window !== 'undefined' && 'Notification' in window) {
+              if ((isActual && notifSettings.boundaries) || (!isActual && notifSettings.advance)) {
+                try { new Notification(`Chronos: ${task.title}`, { body: `${task.icon} ${label}`, icon: profileImage }); } catch (e) {}
+              }
+            }
+            if (isActual && vibrationEnabled && 'vibrate' in navigator) { navigator.vibrate(5000); }
+          }
+        };
+        checkTime(startMins - 15, "Starts in 15 minutes", false);
+        checkTime(startMins - 5, "Starts in 5 minutes", false);
+        checkTime(endMins - 15, "Ends in 15 minutes", false);
+        checkTime(endMins - 5, "Ends in 5 minutes", false);
+        checkTime(startMins, "Task starting now", true);
+        checkTime(endMins, "Task completed", true);
+      });
+      if (sentinels.current.size > 100) sentinels.current.clear();
+    };
+    const timer = setInterval(checkAlerts, 30000);
+    return () => clearInterval(timer);
+  }, [tasks, notifSettings, vibrationEnabled, profileImage]);
 
   const scrollToToday = useCallback((behavior: ScrollBehavior = 'auto') => { if (todayRef.current) todayRef.current.scrollIntoView({ behavior, block: 'center' }); else if (scrollContainerRef.current) scrollContainerRef.current.scrollTo({ top: 0, behavior }); }, []);
   useEffect(() => { if (view === 'calendar' && months.length > 0) { const timer = setTimeout(() => scrollToToday('auto'), 100); return () => clearTimeout(timer); } }, [view, months.length, scrollToToday]);
@@ -767,12 +1185,157 @@ const App: React.FC = () => {
   };
 
   const toggleTaskCompletion = useCallback((date: string, taskId: string) => { setTasks(prev => { const updatedDayTasks = (prev[date] || []).map(task => task.id === taskId ? { ...task, completed: !task.completed } : task); const updatedTasks = { ...prev, [date]: updatedDayTasks }; localStorage.setItem('chronos_tasks', JSON.stringify(updatedTasks)); return updatedTasks; }); }, []);
+  const setMoodForDate = useCallback((date: string, moodId: string) => { setMoods(prev => { const updatedMoods = { ...prev, [date]: moodId }; localStorage.setItem('chronos_moods', JSON.stringify(updatedMoods)); return updatedMoods; }); }, []);
+  const updateJournalEntry = useCallback((date: string, text: string) => { setJournalEntries(prev => { const updated = { ...prev, [date]: text }; localStorage.setItem('chronos_journal', JSON.stringify(updated)); return updated; }); }, []);
+  const updateGoal = useCallback((type: string, value: string) => { setGoals(prev => { const updated = { ...prev, [type]: value }; localStorage.setItem('chronos_goals', JSON.stringify(updated)); return updated; }); }, []);
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files) return; const dateKey = selectedDateStr;
+    Array.from(e.target.files).forEach(file => { const reader = new FileReader(); reader.onloadend = () => { setJournalImages(prev => { const updatedImages = [...(prev[dateKey] || []), reader.result as string]; const allImages = { ...prev, [dateKey]: updatedImages }; localStorage.setItem('chronos_journal_images', JSON.stringify(allImages)); return allImages; }); }; reader.readAsDataURL(file); });
+  };
+  const removeImage = (dateKey: string, index: number, e: React.MouseEvent) => { e.stopPropagation(); setJournalImages(prev => { const updatedImages = (prev[dateKey] || []).filter((_, i) => i !== index); const allImages = { ...prev, [dateKey]: updatedImages }; localStorage.setItem('chronos_journal_images', JSON.stringify(allImages)); return allImages; }); };
+  const addAudio = useCallback((dateKey: string, base64Audio: string) => { setJournalAudios(prev => { const updatedAudios = [...(prev[dateKey] || []), base64Audio]; const allAudios = { ...prev, [dateKey]: updatedAudios }; localStorage.setItem('chronos_journal_audios', JSON.stringify(allAudios)); return allAudios; }); }, []);
+  const removeAudio = useCallback((dateKey: string, index: number) => { setJournalAudios(prev => { const updatedAudios = (prev[dateKey] || []).filter((_, i) => i !== index); const allAudios = { ...prev, [dateKey]: updatedAudios }; localStorage.setItem('chronos_journal_audios', JSON.stringify(allAudios)); return allAudios; }); }, []);
+  
   const handleUpdateUserName = (name: string) => { setUserName(name); localStorage.setItem('chronos_user_name', name); };
   const handleUpdateProfileImage = (newImage: string) => { setProfileImage(newImage); localStorage.setItem('chronos_profile_image', newImage); };
+  const handleUpdateNotifs = (s: any) => { setNotifSettings(s); localStorage.setItem('chronos_notif_settings', JSON.stringify(s)); };
+  const handleUpdateVibration = (v: boolean) => { setVibrationEnabled(v); localStorage.setItem('chronos_vibration_enabled', JSON.stringify(v)); };
   const handleUpdateTheme = (newTheme: ThemeConfig) => { setThemeConfig(newTheme); localStorage.setItem('chronos_theme_config', JSON.stringify(newTheme)); };
   const handleUpdateCalendarMode = (m: 'normal' | 'mood') => { setCalendarMode(m); localStorage.setItem('chronos_calendar_mode', JSON.stringify(m)); };
 
+  const handleExportData = async () => {
+    const zip = new JSZip();
+    const dataFolder = zip.folder("data")!;
+    const journalFolder = zip.folder("journal")!;
+    const mediaFolder = journalFolder.folder("media")!;
+    const imagesFolder = mediaFolder.folder("images")!;
+    const audioFolder = mediaFolder.folder("audio")!;
+
+    // Helper for base64 to blob
+    const b64toBlob = (b64: string) => {
+      const parts = b64.split(';base64,');
+      const contentType = parts[0].split(':')[1];
+      const raw = window.atob(parts[1]);
+      const rawLength = raw.length;
+      const uInt8Array = new Uint8Array(rawLength);
+      for (let i = 0; i < rawLength; ++i) { uInt8Array[i] = raw.charCodeAt(i); }
+      return new Blob([uInt8Array], { type: contentType });
+    };
+
+    const workspaceData: any = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)!;
+      if (key.startsWith('chronos_')) {
+        const val = localStorage.getItem(key);
+        try {
+          const parsed = JSON.parse(val!);
+          if (key === 'chronos_journal_images') {
+            Object.entries(parsed as Record<string, string[]>).forEach(([date, imgs]) => {
+              imgs.forEach((img, idx) => {
+                imagesFolder.file(`${date}_${idx}.png`, b64toBlob(img));
+              });
+            });
+          } else if (key === 'chronos_journal_audios') {
+             Object.entries(parsed as Record<string, string[]>).forEach(([date, audios]) => {
+              audios.forEach((audio, idx) => {
+                audioFolder.file(`${date}_${idx}.webm`, b64toBlob(audio));
+              });
+            });
+          } else {
+            workspaceData[key.replace('chronos_', '')] = parsed;
+          }
+        } catch (e) {
+          workspaceData[key.replace('chronos_', '')] = val;
+        }
+      }
+    }
+
+    zip.file("chronos_workspace.json", JSON.stringify(workspaceData, null, 2));
+    
+    const content = await zip.generateAsync({ type: "blob" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(content);
+    link.download = `chronos_backup_${new Date().toISOString().split('T')[0]}.zip`;
+    link.click();
+  };
+
+  const handleImportData = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || !e.target.files[0]) return;
+    const file = e.target.files[0];
+    
+    if (!confirm("Importing a workspace will overwrite your current tasks and memories. Are you sure you want to proceed?")) {
+      e.target.value = '';
+      return;
+    }
+
+    try {
+      const zip = await JSZip.loadAsync(file);
+      const workspaceJson = await zip.file("chronos_workspace.json")?.async("string");
+      
+      if (!workspaceJson) {
+        alert("Invalid backup file: chronos_workspace.json missing.");
+        return;
+      }
+
+      const parsedWorkspace = JSON.parse(workspaceJson);
+      
+      // Basic restore of simple JSON fields
+      Object.entries(parsedWorkspace).forEach(([key, val]) => {
+        localStorage.setItem(`chronos_${key}`, JSON.stringify(val));
+      });
+
+      // Restore Media (Images)
+      const reconstructedImages: Record<string, string[]> = {};
+      const imageFiles = zip.folder("journal/media/images")?.files;
+      if (imageFiles) {
+        for (const [path, fileObj] of Object.entries(imageFiles)) {
+          if (fileObj.dir) continue;
+          const fileName = path.split('/').pop()!;
+          const date = fileName.split('_')[0];
+          const blob = await fileObj.async("blob");
+          const reader = new FileReader();
+          const base64: string = await new Promise((resolve) => {
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+          });
+          if (!reconstructedImages[date]) reconstructedImages[date] = [];
+          reconstructedImages[date].push(base64);
+        }
+      }
+      localStorage.setItem('chronos_journal_images', JSON.stringify(reconstructedImages));
+
+      // Restore Media (Audio)
+      const reconstructedAudios: Record<string, string[]> = {};
+      const audioFiles = zip.folder("journal/media/audio")?.files;
+      if (audioFiles) {
+        for (const [path, fileObj] of Object.entries(audioFiles)) {
+          if (fileObj.dir) continue;
+          const fileName = path.split('/').pop()!;
+          const date = fileName.split('_')[0];
+          const blob = await fileObj.async("blob");
+          const reader = new FileReader();
+          const base64: string = await new Promise((resolve) => {
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+          });
+          if (!reconstructedAudios[date]) reconstructedAudios[date] = [];
+          reconstructedAudios[date].push(base64);
+        }
+      }
+      localStorage.setItem('chronos_journal_audios', JSON.stringify(reconstructedAudios));
+
+      alert("Workspace restored successfully! The app will now reload.");
+      window.location.reload();
+    } catch (err) {
+      console.error("Import failed:", err);
+      alert("Failed to restore workspace. The file might be corrupted.");
+    }
+  };
+
   const currentDayTasks = useMemo(() => tasks[selectedDateStr] || [], [tasks, selectedDateStr]);
+  const currentMoodId = useMemo(() => moods[selectedDateStr] || 'none', [moods, selectedDateStr]);
+  const currentImages = useMemo(() => journalImages[selectedDateStr] || [], [journalImages, selectedDateStr]);
+  const currentAudios = useMemo(() => journalAudios[selectedDateStr] || [], [journalAudios, selectedDateStr]);
   const accentBg = themeConfig.accentColor.split(' ')[0];
 
   const NavItem: React.FC<{ viewId: any, active: boolean, onClick: () => void, children: React.ReactNode }> = ({ active, onClick, children }) => (
@@ -783,6 +1346,7 @@ const App: React.FC = () => {
       <div className={`relative z-10 transition-all duration-300 flex items-center justify-center ${active ? 'text-white scale-[1.3]' : 'text-gray-500 group-hover:text-gray-300 hover:translate-y-[-4px]'}`}>
         {children}
       </div>
+      {active && <div className={`absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full ${accentBg} shadow-[0_0_20px_white] animate-pulse`}></div>}
     </button>
   );
 
@@ -797,13 +1361,17 @@ const App: React.FC = () => {
         .animate-mood-spin-reverse { animation: mood-spin-reverse 35s linear infinite; transform-origin: center; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .safe-area-bottom { padding-bottom: max(2.5rem, env(safe-area-inset-bottom)); }
+        .cursor-crosshair { cursor: crosshair; }
       `}</style>
       
       {view === 'home' && <DashboardView selectedDate={selectedDate} selectedDateKey={selectedDateStr} tasks={tasks} setView={setView} toggleTaskCompletion={toggleTaskCompletion} isReadOnly={isReadOnly} onBackToToday={handleBackToToday} profileImage={profileImage} userName={userName} theme={themeConfig} />}
+      {view === 'goal' && <GoalViewComponent goals={goals} updateGoal={updateGoal} isReadOnly={isReadOnly} theme={themeConfig} />}
       {view === 'calendar' && (
         <CalendarListView scrollContainerRef={scrollContainerRef} todayRef={todayRef} selectedYear={selectedYear} setSelectedYear={setSelectedYear} months={months} tasks={tasks} moods={moods} onDateSelect={(d) => { setSelectedDate(d); setView('home'); }} onAddTask={(d) => { setSelectedDate(d); setIsModalOpen(true); }} scrollToToday={scrollToToday} isPastDate={isPastDate} theme={themeConfig} mode={calendarMode} setMode={handleUpdateCalendarMode} />
       )}
       {view === 'timeline' && <TimelineViewComponent selectedDate={selectedDate} currentDayTasks={currentDayTasks} selectedDateStr={selectedDateStr} setView={setView} toggleTaskCompletion={toggleTaskCompletion} onAddTaskAtTime={(t) => { setForcedStartTime(t); setIsModalOpen(true); }} isReadOnly={isReadOnly} theme={themeConfig} />}
+      {view === 'journal' && <JournalViewComponent selectedDateStr={selectedDateStr} currentMoodId={currentMoodId} setMoodForDate={setMoodForDate} journalEntries={journalEntries} updateJournalEntry={updateJournalEntry} currentImages={currentImages} fileInputRef={fileInputRef} handleImageUpload={handleImageUpload} removeImage={removeImage} currentAudios={currentAudios} addAudio={addAudio} removeAudio={removeAudio} setPreviewImage={setPreviewImage} isReadOnly={isReadOnly} theme={themeConfig} />}
       {view === 'settings' && (
         <SettingsViewComponent 
           setView={setView} 
@@ -811,33 +1379,57 @@ const App: React.FC = () => {
           onUpdateProfileImage={handleUpdateProfileImage} 
           userName={userName} 
           onUpdateUserName={handleUpdateUserName} 
-          notificationSettings={{advance: true, boundaries: true}} 
-          onUpdateNotifications={() => {}} 
-          vibrationEnabled={true} 
-          onUpdateVibration={() => {}} 
+          notificationSettings={notifSettings} 
+          onUpdateNotifications={handleUpdateNotifs} 
+          vibrationEnabled={vibrationEnabled} 
+          onUpdateVibration={handleUpdateVibration} 
           theme={themeConfig} 
-          onExport={() => {}} 
-          onImport={() => {}}
+          onExport={handleExportData} 
+          onImport={() => importInputRef.current?.click()}
         />
       )}
       {view === 'theme' && (
         <ThemeViewComponent setView={setView} theme={themeConfig} onUpdateTheme={handleUpdateTheme} />
       )}
 
-      <nav className="shrink-0 bg-[#090A0D]/95 backdrop-blur-3xl border-t border-white/10 pb-10 pt-5 px-10 flex items-center justify-between z-[100] shadow-[0_-20px_60px_rgba(0,0,0,0.8)]">
+      <input 
+        type="file" 
+        ref={importInputRef} 
+        className="hidden" 
+        accept=".zip" 
+        onChange={handleImportData} 
+      />
+
+      <nav className="shrink-0 bg-[#090A0D]/95 backdrop-blur-3xl border-t border-white/10 pb-10 pt-5 px-10 flex items-center justify-between z-[100] safe-area-bottom shadow-[0_-20px_60px_rgba(0,0,0,0.8)]">
         <NavItem active={view === 'home'} onClick={() => setView('home')} viewId="home">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         </NavItem>
+        <NavItem active={view === 'goal'} onClick={() => setView('goal')} viewId="goal">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><path d="M9 15h6"/></svg>
+        </NavItem>
         
-        <button onClick={() => { if (view === 'calendar') scrollToToday('smooth'); else setView('calendar'); }} className={`relative group w-16 h-16 rounded-[1.5rem] flex items-center justify-center transition-all duration-500 transform active:scale-90 ${view === 'calendar' ? `${accentBg} shadow-2xl text-white scale-[1.15]` : 'bg-white/15 text-gray-500 hover:text-gray-200'}`}>
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="relative z-10"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <button onClick={() => { if (view === 'calendar') scrollToToday('smooth'); else setView('calendar'); }} className={`relative group w-16 h-16 rounded-[1.5rem] flex items-center justify-center transition-all duration-500 transform active:scale-90 ${view === 'calendar' ? `${accentBg} shadow-[0_25px_50px_rgba(0,0,0,0.7)] text-white scale-[1.15]` : 'bg-white/15 text-gray-500 hover:text-gray-200 shadow-xl'}`}>
+          {view === 'calendar' && (
+            <div className={`absolute -inset-4 ${accentBg} opacity-40 blur-[40px] animate-pulse rounded-[2rem]`}></div>
+          )}
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="relative z-10 drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         </button>
 
         <NavItem active={view === 'timeline'} onClick={() => setView('timeline')} viewId="timeline">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/><path d="M12 12 12 2"/></svg>
         </NavItem>
+
+        <NavItem active={view === 'journal'} onClick={() => setView('journal')} viewId="journal">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+            <path d="M9 7h6" />
+            <path d="M9 11h6" />
+          </svg>
+        </NavItem>
       </nav>
       <TaskModal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setForcedStartTime(undefined); }} onSave={handleSaveTask} selectedDate={selectedDateStr} defaultStartTime={forcedStartTime} />
+      {previewImage && (<div className="fixed inset-0 z-[200] bg-black/98 backdrop-blur-3xl flex items-center justify-center p-4" onClick={() => setPreviewImage(null)}><img src={previewImage} alt="" className="max-w-full max-h-full object-contain rounded-2xl animate-in zoom-in-95 shadow-[0_0_100px_rgba(0,0,0,0.95)] border border-white/25" /></div>)}
     </div>
   );
 };
