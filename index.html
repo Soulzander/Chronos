@@ -10,9 +10,12 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Chronos">
-    <link rel="manifest" href="./manifest.json">
+    <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="https://api.dicebear.com/7.x/shapes/svg?seed=chronos&backgroundColor=161821">
 
+    <!-- Secondary Meta for SEO and Social -->
+    <meta name="description" content="Professional holistic time-management app with PWA support.">
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -38,16 +41,38 @@
             backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.05);
         }
-        .gradient-card {
-            background: linear-gradient(135deg, #1e1e24 0%, #121217 100%);
-        }
-        .blue-glow {
-            box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
-        }
         #root {
             height: 100%;
             display: flex;
             flex-direction: column;
+        }
+        /* Booting Sequence Loader */
+        .boot-loader {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #090A0D;
+            z-index: 9999;
+            transition: opacity 0.5s ease-out, visibility 0.5s;
+        }
+        .boot-loader.hidden {
+            opacity: 0;
+            visibility: hidden;
+        }
+        .logo-pulse {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            border-radius: 24px;
+            animation: pulse 2s infinite ease-in-out;
+            box-shadow: 0 0 40px rgba(59, 130, 246, 0.4);
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.8; }
+            50% { transform: scale(1.1); opacity: 1; }
         }
     </style>
 <script type="importmap">
@@ -63,15 +88,30 @@
 </script>
 </head>
 <body class="text-white">
+    <!-- Visual fallback while JS bundles initialize -->
+    <div id="boot-screen" class="boot-loader">
+        <div class="logo-pulse"></div>
+        <p class="mt-6 text-[10px] font-black uppercase tracking-[0.4em] text-white/40">Chronos System Initializing</p>
+    </div>
+
     <div id="root"></div>
     
     <!-- React Entry Point -->
-    <script type="module" src="./index.tsx"></script>
+    <script type="module" src="index.tsx"></script>
 
     <script>
+        // Hide boot screen once React has started rendering
+        window.addEventListener('load', () => {
+            // We give it a small buffer to ensure React mount has started
+            setTimeout(() => {
+                const loader = document.getElementById('boot-screen');
+                if (loader) loader.classList.add('hidden');
+            }, 800);
+        });
+
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
+                navigator.serviceWorker.register('sw.js')
                     .then(reg => console.log('Service Worker registered', reg))
                     .catch(err => console.log('Service Worker registration failed', err));
             });
