@@ -1,0 +1,8 @@
+{
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "name": "Chronos Vertical Calendar",
+  "description": "Professional holistic time-management app with PWA support.",
+  "manifest": "manifest.json"
+}
