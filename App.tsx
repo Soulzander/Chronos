@@ -3,7 +3,11 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Task, DayData, MonthData } from './types';
 import { MONTH_NAMES, COLORS } from './constants';
 import TaskModal from './components/TaskModal';
+import LockScreen from './components/LockScreen';
 import JSZip from 'jszip';
+import { storageService } from './services/storageService';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from './services/storageService';
 
 // Helper to get local YYYY-MM-DD string
 const formatDateKey = (date: Date) => {
@@ -296,8 +300,8 @@ const AethericResonance: React.FC<{ aura: string, moodId: string }> = ({ aura, m
     <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 flex items-center justify-center">
       <style>{`
         @keyframes aether-pulse {
-          0%, 100% { transform: scale(1); opacity: 0.2; filter: blur(60px); }
-          50% { transform: scale(1.8); opacity: 0.45; filter: blur(80px); }
+          0%, 100% { transform: scale(1); opacity: 0.15; filter: blur(60px); }
+          50% { transform: scale(1.8); opacity: 0.35; filter: blur(80px); }
         }
       `}</style>
       <div 
@@ -379,11 +383,17 @@ const SettingsViewComponent: React.FC<{
   onUpdateVibration: (v: boolean) => void,
   theme: ThemeConfig,
   onExport: () => void,
-  onImport: () => void
-}> = ({ setView, profileImage, onUpdateProfileImage, userName, onUpdateUserName, notificationSettings, onUpdateNotifications, vibrationEnabled, onUpdateVibration, theme, onExport, onImport }) => {
+  onImport: () => void,
+  savedPin: string | null,
+  setIsLocked: (v: boolean) => void,
+  onToggleAppLock: (v: boolean) => void
+}> = ({ setView, profileImage, onUpdateProfileImage, userName, onUpdateUserName, notificationSettings, onUpdateNotifications, vibrationEnabled, onUpdateVibration, theme, onExport, onImport, savedPin, setIsLocked, onToggleAppLock }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const accentBase = theme.accentColor.split(' ')[0].replace('bg-', 'text-');
   const accentBg = theme.accentColor.split(' ')[0];
+
+  const [isChangingPin, setIsChangingPin] = useState(false);
+  const [newPin, setNewPin] = useState('');
 
   const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -520,6 +530,35 @@ const SettingsViewComponent: React.FC<{
                 </div>
                 <ToggleSwitch colorClass={accentBg} active={notificationSettings.boundaries} onChange={(v) => onUpdateNotifications({...notificationSettings, boundaries: v})} />
              </div>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <div className="flex items-center justify-between px-2">
+            <label className={`text-[11px] font-black ${accentBase} tracking-[0.4em] uppercase drop-shadow-sm`}>Security & Access</label>
+          </div>
+          <div className="grid gap-4">
+             <div className="flex items-center justify-between p-7 bg-white/[0.05] border border-white/10 rounded-3xl backdrop-blur-md shadow-lg hover:border-white/20 transition-all">
+                <div className="space-y-1">
+                   <h3 className="font-bold text-white text-base drop-shadow-sm">App Lock</h3>
+                   <p className="text-xs text-gray-400">Secure your workspace with a 4-digit PIN.</p>
+                </div>
+                <ToggleSwitch colorClass={accentBg} active={!!savedPin} onChange={onToggleAppLock} />
+             </div>
+             {savedPin && (
+               <div className="flex items-center justify-between p-7 bg-white/[0.05] border border-white/10 rounded-3xl backdrop-blur-md shadow-lg hover:border-white/20 transition-all">
+                  <div className="space-y-1">
+                     <h3 className="font-bold text-white text-base drop-shadow-sm">Lock Workspace</h3>
+                     <p className="text-xs text-gray-400">Manually lock the application now.</p>
+                  </div>
+                  <button 
+                    onClick={() => setIsLocked(true)}
+                    className={`px-4 py-2 ${accentBg} text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg active:scale-95 transition-all`}
+                  >
+                    Lock Now
+                  </button>
+               </div>
+             )}
           </div>
         </div>
 
@@ -707,9 +746,9 @@ const ThemeViewComponent: React.FC<{
 };
 
 const CalendarListView: React.FC<{
-  scrollContainerRef: React.RefObject<HTMLDivElement | null>, todayRef: React.RefObject<HTMLDivElement | null>, selectedYear: number, setSelectedYear: (y: number) => void, months: MonthData[], tasks: Record<string, Task[]>, moods: Record<string, string>, onDateSelect: (d: Date) => void, onAddTask: (d: Date) => void, scrollToToday: (b?: ScrollBehavior) => void, isPastDate: (d: Date) => boolean, theme: ThemeConfig, mode: 'normal' | 'mood', setMode: (m: 'normal' | 'mood') => void
-}> = ({ scrollContainerRef, todayRef, selectedYear, setSelectedYear, months, tasks, moods, onDateSelect, onAddTask, scrollToToday, isPastDate, theme, mode, setMode }) => {
-  const years = [2024, 2025, 2026, 2027]; const [isMenuOpen, setIsMenuOpen] = useState(false);
+  scrollContainerRef: React.RefObject<HTMLDivElement | null>, todayRef: React.RefObject<HTMLDivElement | null>, selectedYear: number, setSelectedYear: (y: number) => void, months: MonthData[], tasks: Record<string, Task[]>, moods: Record<string, string>, onDateSelect: (d: Date) => void, onAddTask: (d: Date) => void, scrollToToday: (b?: ScrollBehavior) => void, isPastDate: (d: Date) => boolean, theme: ThemeConfig, mode: 'normal' | 'mood', setMode: (m: 'normal' | 'mood') => void, years: number[]
+}> = ({ scrollContainerRef, todayRef, selectedYear, setSelectedYear, months, tasks, moods, onDateSelect, onAddTask, scrollToToday, isPastDate, theme, mode, setMode, years }) => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const accentBg = theme.accentColor.split(' ')[0];
   const accentBase = accentBg.replace('bg-', 'text-');
 
@@ -721,7 +760,11 @@ const CalendarListView: React.FC<{
          <div className="flex items-center justify-between"><div className="relative"><button onClick={() => setIsMenuOpen(!isMenuOpen)} className="flex items-center gap-3 group"><h2 className={`text-3xl font-bold tracking-tighter group-hover:${accentBase} transition-colors text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]`}>Calendar</h2><svg className={`text-gray-400 group-hover:${accentBase} transition-all ${isMenuOpen ? 'rotate-180' : ''}`} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="6 9 12 15 18 9"/></svg></button>
               {isMenuOpen && <div className="absolute top-full mt-2 left-0 w-56 bg-[#1A1B23]/95 backdrop-blur-2xl border border-white/20 rounded-3xl p-2 shadow-[0_25px_80px_rgba(0,0,0,0.9)] z-[100] animate-in fade-in zoom-in-95 duration-200"><button onClick={() => { setMode('normal'); setIsMenuOpen(false); }} className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${mode === 'normal' ? `${accentBg} text-white shadow-[0_0_20px_rgba(255,255,255,0.2)]` : 'text-gray-200 hover:bg-white/10 hover:text-white'}`}><span className="text-sm font-bold">Normal View</span>{mode === 'normal' && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4"><polyline points="20 6 9 17 4 12"/></svg>}</button><button onClick={() => { setMode('mood'); setIsMenuOpen(false); }} className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${mode === 'mood' ? `${accentBg} text-white shadow-[0_0_20px_rgba(255,255,255,0.2)]` : 'text-gray-200 hover:bg-white/10 hover:text-white'}`}><span className="text-sm font-bold">Mood View</span>{mode === 'mood' && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4"><polyline points="20 6 9 17 4 12"/></svg>}</button></div>}
             </div><button onClick={() => { setSelectedYear(new Date().getFullYear()); setTimeout(() => scrollToToday('smooth'), 50); }} className={`px-5 py-2 rounded-full ${accentBg}/45 ${accentBase} text-[10px] font-black uppercase tracking-[0.2em] border border-white/20 active:scale-95 transition-all shadow-[0_0_15px_rgba(0,0,0,0.3)]`}>Today</button></div>
-         <div className="flex gap-2 p-1.5 bg-white/15 rounded-2xl border border-white/15 self-start backdrop-blur-md shadow-[inset_0_0_10px_rgba(255,255,255,0.05)]">{years.map(y => (<button key={y} onClick={() => setSelectedYear(y)} className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${selectedYear === y ? `${accentBg} text-white shadow-[0_0_20px_rgba(255,255,255,0.25)] scale-[1.05]` : 'text-gray-300 hover:text-white'}`}>{y}</button>))}</div>
+         <div className="flex gap-2 p-1.5 bg-white/15 rounded-2xl border border-white/15 self-start backdrop-blur-md shadow-[inset_0_0_10px_rgba(255,255,255,0.05)] overflow-x-auto no-scrollbar max-w-full">
+            {years.map(y => (
+              <button key={y} onClick={() => setSelectedYear(y)} className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shrink-0 ${selectedYear === y ? `${accentBg} text-white shadow-[0_0_20px_rgba(255,255,255,0.25)] scale-[1.05]` : 'text-gray-300 hover:text-white'}`}>{y}</button>
+            ))}
+          </div>
       </div>
       {months.map((m) => (
         <React.Fragment key={`${m.year}-${m.month}`}><div className="py-8"><h2 className="text-[10px] font-black uppercase tracking-[0.6em] text-white/90 leading-none text-center relative z-10 drop-shadow-[0_0_5px_rgba(255,255,255,0.2)]">{MONTH_NAMES[m.month]} {m.year}</h2></div><div className="space-y-4 relative z-10">{m.days.map((day, dIdx) => {
@@ -953,7 +996,7 @@ const AudioPlayer: React.FC<{ src: string, onDelete?: () => void, isReadOnly: bo
         const baseTime = timeRef.current, nR = r / ribbonCount, ribbonTime = baseTime + ribbonPhases.current[r], localSpeed = ribbonSpeeds.current[r], auraOffset = (nR - 0.5) * (canvas.height * 0.9) * smoothedAmplitude.current, parallax = ribbonTime * 0.8 * localSpeed;
         const drawPass = (pass: 'nebula' | 'core') => {
           ctx.beginPath(); ctx.globalCompositeOperation = 'screen'; let alpha, weight, blur;
-          if (pass === 'nebula') { alpha = 0.015 * (1 - nR * 0.5); weight = 32; blur = 20; } else { alpha = 0.6 / (1 + r * 0.15); weight = 1.6; blur = 0; }
+          if (pass === 'nebula') { alpha = 0.04 * (1 - nR * 0.5); weight = 32; blur = 20; } else { alpha = 0.8 / (1 + r * 0.15); weight = 1.6; blur = 0; }
           const h = 200 + (r * 4) + (bass * 60), s = 85 + (highs * 15), l = 50 + (nR * 5) + (smoothedAmplitude.current * 20);
           const gradient = ctx.createLinearGradient(0, 0, width, 0); gradient.addColorStop(0, `hsla(${h}, ${s}%, ${l}%, 0)`); gradient.addColorStop(0.3, `hsla(${h}, ${s}%, ${l}%, ${alpha})`); gradient.addColorStop(0.7, `hsla(${h}, ${s}%, ${l}%, ${alpha})`); gradient.addColorStop(1, `hsla(${h}, ${s}%, ${l}%, 0)`);
           ctx.strokeStyle = gradient; ctx.lineWidth = weight; if (blur) ctx.filter = `blur(${blur}px)`;
@@ -1015,7 +1058,7 @@ const JournalViewComponent: React.FC<{
         container: 'bg-white/[0.03] border-white/10 backdrop-blur-3xl',
         card: 'bg-white/[0.12] border-white/20 backdrop-blur-md rounded-[2.5rem]',
         text: 'text-white font-medium',
-        glow: 'opacity-30'
+        glow: 'opacity-15'
       };
     }
   }, [theme.journalStyle]);
@@ -1052,9 +1095,10 @@ const JournalViewComponent: React.FC<{
       )}
       <div className="px-6 py-8 shrink-0 relative z-10"><h2 className={`font-bold text-4xl tracking-tighter ${styles.text.split(' ')[0]}`} style={{ textShadow: `0 0 30px ${currentMood.aura}60` }}>Daily Journal</h2>{!isReadOnly && (<div className="w-full mt-4"><div className="relative h-12 flex flex-col justify-center"><div className="relative w-full h-1.5 bg-white/20 rounded-full overflow-visible"><div className="absolute left-0 top-0 h-full transition-all duration-700 rounded-full shadow-[0_0_10px_white]" style={{ width: `${(MOOD_OPTIONS.findIndex(m => m.id === currentMoodId) / (MOOD_OPTIONS.length - 1)) * 100}%`, backgroundColor: currentMood.aura }} /><div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 flex justify-between px-0">{MOOD_OPTIONS.map((m) => (<button key={m.id} onClick={() => setMoodForDate(selectedDateStr, m.id)} className="relative z-10 w-8 h-8 flex items-center justify-center"><div className={`w-3.5 h-3.5 rounded-full transition-all duration-500 border ${currentMoodId === m.id ? 'bg-white border-white scale-150 shadow-[0_0_15px_white]' : 'bg-transparent border-white/40 hover:border-white/70'}`} /></button>))}</div></div><div className="mt-8 self-start"><div className={`backdrop-blur-md px-5 py-2.5 rounded-full border shadow-xl flex items-center justify-center min-w-[100px] transition-all duration-500 ${currentMoodId === 'none' ? 'bg-white/40 border-white/50' : 'bg-white/20 border-white/20'}`}><span className="text-[11px] font-black uppercase tracking-[0.2em] drop-shadow-sm" style={{ color: currentMoodId === 'none' ? '#FFFFFF' : currentMood.aura, textShadow: currentMoodId === 'none' ? '0 0 10px rgba(255,255,255,0.5)' : '0 1px 2px rgba(0,0,0,0.5)' }}>{currentMood.label}</span></div></div></div></div>)}</div>
       <div className="flex-1 px-6 space-y-10 overflow-y-auto no-scrollbar pb-32 relative z-10 mt-6">
-        <div className="space-y-4 relative group"><label className={`text-[11px] font-bold ${accentBase} tracking-[0.4em] ml-2 uppercase`}>Audio Journal</label><div className="relative"><div className={`absolute -inset-0.5 rounded-[2.5rem] blur-md opacity-30 ${theme.journalStyle === 'mono' ? 'hidden' : ''}`} style={{ background: currentMood.aura }}></div><div className={`relative p-6 space-y-6 transition-all duration-1000 ${styles.card}`}>{!isReadOnly && (<button onClick={isRecording ? () => { mediaRecorderRef.current?.stop(); setIsRecording(false); } : startRecording} className={`w-full py-6 rounded-3xl flex items-center justify-center gap-4 transition-all active:scale-95 border-2 ${isRecording ? 'bg-rose-500/30 border-rose-500 text-white animate-pulse shadow-[0_0_25px_rgba(244,63,94,0.4)]' : 'bg-white/10 border-white/30 text-white hover:border-white/50'}`}><div className={`w-4 h-4 rounded-full ${isRecording ? 'bg-rose-500 shadow-[0_0_12px_rose]' : 'bg-gray-400'}`} /><span className="text-[11px] font-black uppercase tracking-widest">{isRecording ? 'Stop Recording Memory...' : 'Tap to Capture Voice Journal'}</span></button>)}<div className="grid gap-4">{currentAudios.map((audio, idx) => (<AudioPlayer key={idx} src={audio} isReadOnly={isReadOnly} accentColor={accentBg} onDelete={() => removeAudio(selectedDateStr, idx)} />))}{currentAudios.length === 0 && (<div className="py-8 text-center text-gray-200 border border-dashed border-white/20 rounded-3xl bg-white/[0.04]"><p className="text-[10px] font-black uppercase tracking-widest opacity-60">No voice recordings preserved</p></div>)}</div></div></div></div>
-        <div className="space-y-4 relative group"><label className={`text-[11px] font-bold ${accentBase} tracking-[0.4em] ml-2 uppercase`}>Day's Perspective</label><div className="relative"><div className={`absolute -inset-0.5 rounded-[2.5rem] blur-md opacity-30 ${theme.journalStyle === 'mono' ? 'hidden' : ''}`} style={{ background: currentMood.aura }}></div><div className={`relative p-2 overflow-hidden shadow-2xl transition-all duration-1000 ${styles.card}`}><textarea readOnly={isReadOnly} className={`w-full h-48 bg-transparent p-6 text-lg outline-none transition-all placeholder:text-gray-400 resize-none ${styles.text}`} placeholder={isReadOnly ? "No written perspective for this day." : "Transcribe your day into memory..."} value={journalEntries[selectedDateStr] || ''} onChange={(e) => updateJournalEntry(selectedDateStr, e.target.value)} /></div></div></div>
-        <div className="space-y-4 pb-10 relative group"><div className="flex items-center justify-between ml-2"><label className={`text-[11px] font-bold ${accentBase} tracking-[0.4em] uppercase`}>Visual Records</label>{!isReadOnly && (<><button onClick={() => fileInputRef.current?.click()} className={`px-5 py-2 ${accentBg}/30 border border-white/20 rounded-full text-[10px] font-black uppercase tracking-widest text-white shadow-lg`}>Preserve Photo</button><input type="file" autoFocus={false} ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={handleImageUpload} /></>)}</div><div className="relative"><div className={`absolute -inset-0.5 rounded-[2.5rem] blur-md opacity-30 ${theme.journalStyle === 'mono' ? 'hidden' : ''}`} style={{ background: currentMood.aura }}></div><div className={`relative p-6 min-h-[160px] flex items-center justify-center transition-all duration-1000 ${styles.card}`}>{currentImages.length > 0 ? (<div className="grid grid-cols-2 gap-4 w-full">{currentImages.map((img, idx) => (<div key={idx} onClick={() => setPreviewImage(img)} className={`relative aspect-square rounded-2xl overflow-hidden border border-white/30 cursor-pointer hover:scale-[1.03] transition-transform shadow-lg`}><img src={img} alt="" className="w-full h-full object-cover" />{!isReadOnly && (<button onClick={(e) => removeImage(selectedDateStr, idx, e)} className="absolute top-2 right-2 p-2 bg-black/80 rounded-lg text-white opacity-0 group-hover:opacity-100 transition-opacity border border-white/20"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>)}</div>))}</div>) : (!isReadOnly ? (<button onClick={() => fileInputRef.current?.click()} className="w-full py-12 rounded-3xl border-2 border-dashed border-white/20 bg-white/[0.04] flex flex-col items-center gap-4 group/btn"><div className="p-4 bg-white/20 rounded-2xl text-gray-100 group-hover/btn:text-white transition-colors shadow-inner"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="5" ry="5"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div><p className="text-[10px] font-black text-gray-300 uppercase tracking-[0.3em]">Save a Moment</p></button>) : (<p className="text-[10px] font-black uppercase tracking-widest opacity-60 text-center">No visual memories preserved</p>))}</div></div></div>
+        <div className="space-y-4 relative group"><label className={`text-[11px] font-bold ${accentBase} tracking-[0.4em] ml-2 uppercase`}>Audio Journal</label><div className="relative"><div className={`absolute -inset-0.5 rounded-[2.5rem] blur-md opacity-10 ${theme.journalStyle === 'mono' ? 'hidden' : ''}`} style={{ background: currentMood.aura }}></div><div className={`relative p-6 space-y-6 transition-all duration-1000 ${styles.card.replace('bg-white/[0.12]', 'bg-white/[0.08]')}`}>{!isReadOnly && (<button onClick={isRecording ? () => { mediaRecorderRef.current?.stop(); setIsRecording(false); } : startRecording} className={`w-full py-6 rounded-3xl flex items-center justify-center gap-4 transition-all active:scale-95 border-2 ${isRecording ? 'bg-rose-500/30 border-rose-500 text-white animate-pulse shadow-[0_0_25px_rgba(244,63,94,0.4)]' : 'bg-white/10 border-white/30 text-white hover:border-white/50'}`}><div className={`w-4 h-4 rounded-full ${isRecording ? 'bg-rose-500 shadow-[0_0_12px_rose]' : 'bg-gray-400'}`} /><span className="text-[11px] font-black uppercase tracking-widest">{isRecording ? 'Stop Recording Memory...' : 'Tap to Capture Voice Journal'}</span></button>)}<div className="grid gap-4">{currentAudios.map((audio, idx) => (<AudioPlayer key={idx} src={audio} isReadOnly={isReadOnly} accentColor={accentBg} onDelete={() => removeAudio(selectedDateStr, idx)} />))}{currentAudios.length === 0 && (<div className="py-8 text-center text-gray-200 border border-dashed border-white/20 rounded-3xl bg-white/[0.04]"><p className="text-[10px] font-black uppercase tracking-widest opacity-60">No voice recordings preserved</p></div>)}</div></div></div></div>
+        <div className="space-y-4 relative group"><label className={`text-[11px] font-bold ${accentBase} tracking-[0.4em] ml-2 uppercase`}>Day's Perspective</label><div className="relative"><div className={`absolute -inset-0.5 rounded-[2.5rem] blur-md opacity-10 ${theme.journalStyle === 'mono' ? 'hidden' : ''}`} style={{ background: currentMood.aura }}></div><div className={`relative p-2 overflow-hidden shadow-2xl transition-all duration-1000 ${styles.card.replace('bg-white/[0.12]', 'bg-white/[0.08]')}`}><textarea readOnly={isReadOnly} className={`w-full h-48 bg-transparent p-6 text-lg outline-none transition-all placeholder:text-gray-400 resize-none ${styles.text}`} placeholder={isReadOnly ? "No written perspective for this day." : "Transcribe your day into memory..."} value={journalEntries[selectedDateStr] || ''} onChange={(e) => updateJournalEntry(selectedDateStr, e.target.value)} /></div></div></div>
+        <div className="space-y-4 pb-10 relative group">
+<div className="flex items-center justify-between ml-2"><label className={`text-[11px] font-bold ${accentBase} tracking-[0.4em] uppercase`}>Visual Records</label>{!isReadOnly && (<><button onClick={() => fileInputRef.current?.click()} className={`px-5 py-2 ${accentBg}/30 border border-white/20 rounded-full text-[10px] font-black uppercase tracking-widest text-white shadow-lg`}>Preserve Photo</button><input type="file" autoFocus={false} ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={handleImageUpload} /></>)}</div><div className="relative"><div className={`absolute -inset-0.5 rounded-[2.5rem] blur-md opacity-10 ${theme.journalStyle === 'mono' ? 'hidden' : ''}`} style={{ background: currentMood.aura }}></div><div className={`relative p-6 min-h-[160px] flex items-center justify-center transition-all duration-1000 ${styles.card.replace('bg-white/[0.12]', 'bg-white/[0.08]')}`}>{currentImages.length > 0 ? (<div className="grid grid-cols-2 gap-4 w-full">{currentImages.map((img, idx) => (<div key={idx} onClick={() => setPreviewImage(img)} className={`relative aspect-square rounded-2xl overflow-hidden border border-white/30 cursor-pointer hover:scale-[1.03] transition-transform shadow-lg`}><img src={img} alt="" className="w-full h-full object-cover" />{!isReadOnly && (<button onClick={(e) => removeImage(selectedDateStr, idx, e)} className="absolute top-2 right-2 p-2 bg-black/80 rounded-lg text-white opacity-0 group-hover:opacity-100 transition-opacity border border-white/20"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>)}</div>))}</div>) : (!isReadOnly ? (<button onClick={() => fileInputRef.current?.click()} className="w-full py-12 rounded-3xl border-2 border-dashed border-white/20 bg-white/[0.04] flex flex-col items-center gap-4 group/btn"><div className="p-4 bg-white/20 rounded-2xl text-gray-100 group-hover/btn:text-white transition-colors shadow-inner"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="5" ry="5"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div><p className="text-[10px] font-black text-gray-300 uppercase tracking-[0.3em]">Save a Moment</p></button>) : (<p className="text-[10px] font-black uppercase tracking-widest opacity-60 text-center">No visual memories preserved</p>))}</div></div></div>
       </div>
     </div>
   );
@@ -1062,6 +1106,12 @@ const JournalViewComponent: React.FC<{
 
 const App: React.FC = () => {
   const [view, setView] = useState<'home' | 'goal' | 'calendar' | 'timeline' | 'journal' | 'profile' | 'settings' | 'theme'>('home');
+  
+  // Storage State
+  const [isStorageReady, setIsStorageReady] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
+  const [savedPin, setSavedPin] = useState<string | null>(null);
+
   const [tasks, setTasks] = useState<Record<string, Task[]>>({});
   const [moods, setMoods] = useState<Record<string, string>>({});
   const [journalEntries, setJournalEntries] = useState<Record<string, string>>({});
@@ -1113,23 +1163,57 @@ const App: React.FC = () => {
   const sentinels = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    const yearMonths: MonthData[] = []; for (let i = 0; i < 12; i++) yearMonths.push(generateMonthData(i, selectedYear)); setMonths(yearMonths);
-    const hydrate = (key: string, setter: Function) => {
-      const val = localStorage.getItem(key);
-      if (val) { try { setter(JSON.parse(val)); } catch (e) { setter(val); } }
+    const initStorage = async () => {
+      try {
+        await storageService.migrateFromLocalStorage();
+        
+        const [
+          allTasks,
+          allMoods,
+          allJournal,
+          allImages,
+          allAudios,
+          allGoals,
+          allSettings
+        ] = await Promise.all([
+          storageService.getAllTasks(),
+          storageService.getMoods(),
+          storageService.getJournalEntries(),
+          storageService.getJournalImages(),
+          storageService.getJournalAudios(),
+          storageService.getGoals(),
+          storageService.getAllSettings()
+        ]);
+
+        setTasks(allTasks);
+        setMoods(allMoods);
+        setJournalEntries(allJournal);
+        setJournalImages(allImages);
+        setJournalAudios(allAudios);
+        setGoals(allGoals);
+
+        if (allSettings.user_name) setUserName(allSettings.user_name);
+        if (allSettings.profile_image) setProfileImage(allSettings.profile_image);
+        if (allSettings.notif_settings) setNotifSettings(allSettings.notif_settings);
+        if (allSettings.vibration_enabled !== undefined) setVibrationEnabled(allSettings.vibration_enabled);
+        if (allSettings.theme_config) setThemeConfig(allSettings.theme_config);
+        if (allSettings.calendar_mode) setCalendarMode(allSettings.calendar_mode);
+        if (allSettings.app_lock_pin) {
+          setSavedPin(allSettings.app_lock_pin);
+          setIsLocked(true);
+        }
+      } catch (error) {
+        console.error("Failed to initialize storage:", error);
+      } finally {
+        setIsStorageReady(true);
+      }
     };
-    hydrate('chronos_tasks', setTasks);
-    hydrate('chronos_moods', setMoods);
-    hydrate('chronos_journal', setJournalEntries);
-    hydrate('chronos_journal_images', setJournalImages);
-    hydrate('chronos_journal_audios', setJournalAudios);
-    hydrate('chronos_goals', setGoals);
-    hydrate('chronos_profile_image', setProfileImage);
-    hydrate('chronos_user_name', setUserName);
-    hydrate('chronos_notif_settings', setNotifSettings);
-    hydrate('chronos_vibration_enabled', setVibrationEnabled);
-    hydrate('chronos_theme_config', setThemeConfig);
-    hydrate('chronos_calendar_mode', setCalendarMode);
+
+    initStorage();
+  }, []);
+
+  useEffect(() => {
+    const yearMonths: MonthData[] = []; for (let i = 0; i < 12; i++) yearMonths.push(generateMonthData(i, selectedYear)); setMonths(yearMonths);
   }, [selectedYear, generateMonthData]);
 
   useEffect(() => {
@@ -1178,30 +1262,85 @@ const App: React.FC = () => {
   useEffect(() => { if (view === 'calendar' && months.length > 0) { const timer = setTimeout(() => scrollToToday('auto'), 100); return () => clearTimeout(timer); } }, [view, months.length, scrollToToday]);
   
   const handleBackToToday = useCallback(() => { const today = new Date(); setSelectedDate(today); setSelectedYear(today.getFullYear()); setView('home'); }, []);
-  const handleSaveTask = (newTaskData: Omit<Task, 'id' | 'completed'>) => {
+  const handleSaveTask = async (newTaskData: Omit<Task, 'id' | 'completed'>) => {
     const newTask: Task = { ...newTaskData, id: Math.random().toString(36).substr(2, 9), completed: false };
+    await storageService.saveTask(newTask);
     const updatedTasks = { ...tasks, [newTask.date]: [...(tasks[newTask.date] || []), newTask] };
-    setTasks(updatedTasks); localStorage.setItem('chronos_tasks', JSON.stringify(updatedTasks)); setIsModalOpen(false); setForcedStartTime(undefined);
+    setTasks(updatedTasks); setIsModalOpen(false); setForcedStartTime(undefined);
   };
 
-  const toggleTaskCompletion = useCallback((date: string, taskId: string) => { setTasks(prev => { const updatedDayTasks = (prev[date] || []).map(task => task.id === taskId ? { ...task, completed: !task.completed } : task); const updatedTasks = { ...prev, [date]: updatedDayTasks }; localStorage.setItem('chronos_tasks', JSON.stringify(updatedTasks)); return updatedTasks; }); }, []);
-  const setMoodForDate = useCallback((date: string, moodId: string) => { setMoods(prev => { const updatedMoods = { ...prev, [date]: moodId }; localStorage.setItem('chronos_moods', JSON.stringify(updatedMoods)); return updatedMoods; }); }, []);
-  const updateJournalEntry = useCallback((date: string, text: string) => { setJournalEntries(prev => { const updated = { ...prev, [date]: text }; localStorage.setItem('chronos_journal', JSON.stringify(updated)); return updated; }); }, []);
-  const updateGoal = useCallback((type: string, value: string) => { setGoals(prev => { const updated = { ...prev, [type]: value }; localStorage.setItem('chronos_goals', JSON.stringify(updated)); return updated; }); }, []);
+  const toggleTaskCompletion = useCallback(async (date: string, taskId: string) => { 
+    const dayTasks = tasks[date] || [];
+    const task = dayTasks.find(t => t.id === taskId);
+    if (task) {
+      const updatedTask = { ...task, completed: !task.completed };
+      await storageService.saveTask(updatedTask);
+      setTasks(prev => { 
+        const updatedDayTasks = (prev[date] || []).map(t => t.id === taskId ? updatedTask : t); 
+        return { ...prev, [date]: updatedDayTasks }; 
+      }); 
+    }
+  }, [tasks]);
+
+  const setMoodForDate = useCallback(async (date: string, moodId: string) => { 
+    await storageService.saveMood(date, moodId);
+    setMoods(prev => ({ ...prev, [date]: moodId })); 
+  }, []);
+
+  const updateJournalEntry = useCallback(async (date: string, text: string) => { 
+    await storageService.saveJournalEntry(date, text);
+    setJournalEntries(prev => ({ ...prev, [date]: text })); 
+  }, []);
+
+  const updateGoal = useCallback(async (type: string, value: string) => { 
+    await storageService.saveGoal(type, value);
+    setGoals(prev => ({ ...prev, [type]: value })); 
+  }, []);
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return; const dateKey = selectedDateStr;
-    Array.from(e.target.files).forEach(file => { const reader = new FileReader(); reader.onloadend = () => { setJournalImages(prev => { const updatedImages = [...(prev[dateKey] || []), reader.result as string]; const allImages = { ...prev, [dateKey]: updatedImages }; localStorage.setItem('chronos_journal_images', JSON.stringify(allImages)); return allImages; }); }; reader.readAsDataURL(file); });
+    Array.from(e.target.files).forEach(file => { 
+      const reader = new FileReader(); 
+      reader.onloadend = async () => { 
+        const base64 = reader.result as string;
+        const currentImages = journalImages[dateKey] || [];
+        const updatedImages = [...currentImages, base64];
+        await storageService.saveJournalImages(dateKey, updatedImages);
+        setJournalImages(prev => ({ ...prev, [dateKey]: updatedImages })); 
+      }; 
+      reader.readAsDataURL(file); 
+    });
   };
-  const removeImage = (dateKey: string, index: number, e: React.MouseEvent) => { e.stopPropagation(); setJournalImages(prev => { const updatedImages = (prev[dateKey] || []).filter((_, i) => i !== index); const allImages = { ...prev, [dateKey]: updatedImages }; localStorage.setItem('chronos_journal_images', JSON.stringify(allImages)); return allImages; }); };
-  const addAudio = useCallback((dateKey: string, base64Audio: string) => { setJournalAudios(prev => { const updatedAudios = [...(prev[dateKey] || []), base64Audio]; const allAudios = { ...prev, [dateKey]: updatedAudios }; localStorage.setItem('chronos_journal_audios', JSON.stringify(allAudios)); return allAudios; }); }, []);
-  const removeAudio = useCallback((dateKey: string, index: number) => { setJournalAudios(prev => { const updatedAudios = (prev[dateKey] || []).filter((_, i) => i !== index); const allAudios = { ...prev, [dateKey]: updatedAudios }; localStorage.setItem('chronos_journal_audios', JSON.stringify(allAudios)); return allAudios; }); }, []);
+
+  const removeImage = async (dateKey: string, index: number, e: React.MouseEvent) => { 
+    e.stopPropagation(); 
+    const currentImages = journalImages[dateKey] || [];
+    const updatedImages = currentImages.filter((_, i) => i !== index);
+    await storageService.saveJournalImages(dateKey, updatedImages);
+    setJournalImages(prev => ({ ...prev, [dateKey]: updatedImages })); 
+  };
+
+  const addAudio = useCallback(async (dateKey: string, base64Audio: string) => { 
+    const currentAudios = journalAudios[dateKey] || [];
+    const updatedAudios = [...currentAudios, base64Audio];
+    await storageService.saveJournalAudios(dateKey, updatedAudios);
+    setJournalAudios(prev => ({ ...prev, [dateKey]: updatedAudios })); 
+  }, [journalAudios]);
+
+  const removeAudio = useCallback(async (dateKey: string, index: number) => { 
+    const currentAudios = journalAudios[dateKey] || [];
+    const updatedAudios = currentAudios.filter((_, i) => i !== index);
+    await storageService.saveJournalAudios(dateKey, updatedAudios);
+    setJournalAudios(prev => ({ ...prev, [dateKey]: updatedAudios })); 
+  }, [journalAudios]);
   
-  const handleUpdateUserName = (name: string) => { setUserName(name); localStorage.setItem('chronos_user_name', name); };
-  const handleUpdateProfileImage = (newImage: string) => { setProfileImage(newImage); localStorage.setItem('chronos_profile_image', newImage); };
-  const handleUpdateNotifs = (s: any) => { setNotifSettings(s); localStorage.setItem('chronos_notif_settings', JSON.stringify(s)); };
-  const handleUpdateVibration = (v: boolean) => { setVibrationEnabled(v); localStorage.setItem('chronos_vibration_enabled', JSON.stringify(v)); };
-  const handleUpdateTheme = (newTheme: ThemeConfig) => { setThemeConfig(newTheme); localStorage.setItem('chronos_theme_config', JSON.stringify(newTheme)); };
-  const handleUpdateCalendarMode = (m: 'normal' | 'mood') => { setCalendarMode(m); localStorage.setItem('chronos_calendar_mode', JSON.stringify(m)); };
+  const handleUpdateUserName = async (name: string) => { setUserName(name); await storageService.saveSetting('user_name', name); };
+  const handleUpdateProfileImage = async (newImage: string) => { setProfileImage(newImage); await storageService.saveSetting('profile_image', newImage); };
+  const handleUpdateNotifs = async (s: any) => { setNotifSettings(s); await storageService.saveSetting('notif_settings', s); };
+  const handleUpdateVibration = async (v: boolean) => { setVibrationEnabled(v); await storageService.saveSetting('vibration_enabled', v); };
+  const handleUpdateTheme = async (newTheme: ThemeConfig) => { setThemeConfig(newTheme); await storageService.saveSetting('theme_config', newTheme); };
+  const handleUpdateCalendarMode = async (m: 'normal' | 'mood') => { setCalendarMode(m); await storageService.saveSetting('calendar_mode', m); };
+  const handleSetPin = async (pin: string) => { setSavedPin(pin); await storageService.saveSetting('app_lock_pin', pin); };
 
   const handleExportData = async () => {
     const zip = new JSZip();
@@ -1332,6 +1471,38 @@ const App: React.FC = () => {
     }
   };
 
+  const availableYears = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const defaultYears = [currentYear - 2, currentYear - 1, currentYear, currentYear + 1];
+    
+    const allDates = [
+      ...Object.keys(tasks),
+      ...Object.keys(moods),
+      ...Object.keys(journalEntries)
+    ];
+    
+    if (allDates.length === 0) return defaultYears;
+    
+    const yearsWithData = allDates.map(d => parseInt(d.split('-')[0])).filter(y => !isNaN(y));
+    const minYear = Math.min(...yearsWithData, currentYear - 2);
+    const maxYear = currentYear + 1;
+    
+    const years = [];
+    for (let y = minYear; y <= maxYear; y++) {
+      years.push(y);
+    }
+    return years;
+  }, [tasks, moods, journalEntries]);
+
+  const handleToggleAppLock = async (active: boolean) => {
+    if (active) {
+      setIsLocked(true);
+    } else {
+      setSavedPin(null);
+      await storageService.saveSetting('app_lock_pin', null);
+    }
+  };
+
   const currentDayTasks = useMemo(() => tasks[selectedDateStr] || [], [tasks, selectedDateStr]);
   const currentMoodId = useMemo(() => moods[selectedDateStr] || 'none', [moods, selectedDateStr]);
   const currentImages = useMemo(() => journalImages[selectedDateStr] || [], [journalImages, selectedDateStr]);
@@ -1350,8 +1521,27 @@ const App: React.FC = () => {
     </button>
   );
 
+  if (!isStorageReady) {
+    return (
+      <div className="h-screen w-screen bg-[#090A0D] flex flex-col items-center justify-center p-8">
+        <div className="w-24 h-24 relative mb-8">
+          <div className="absolute inset-0 border-4 border-white/10 rounded-[2rem]"></div>
+          <div className={`absolute inset-0 border-4 ${accentBg} rounded-[2rem] border-t-transparent animate-spin`}></div>
+        </div>
+        <h2 className="text-xl font-bold text-white tracking-tight animate-pulse">Initializing Chronos...</h2>
+        <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.4em] mt-4">Securing your workspace</p>
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen w-screen flex flex-col bg-transparent text-white overflow-hidden transition-colors duration-500">
+      <LockScreen 
+        isLocked={isLocked} 
+        onUnlock={() => setIsLocked(false)} 
+        savedPin={savedPin} 
+        onSetPin={handleSetPin} 
+      />
       <style>{`
         @keyframes mood-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes mood-spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -1368,7 +1558,7 @@ const App: React.FC = () => {
       {view === 'home' && <DashboardView selectedDate={selectedDate} selectedDateKey={selectedDateStr} tasks={tasks} setView={setView} toggleTaskCompletion={toggleTaskCompletion} isReadOnly={isReadOnly} onBackToToday={handleBackToToday} profileImage={profileImage} userName={userName} theme={themeConfig} />}
       {view === 'goal' && <GoalViewComponent goals={goals} updateGoal={updateGoal} isReadOnly={isReadOnly} theme={themeConfig} />}
       {view === 'calendar' && (
-        <CalendarListView scrollContainerRef={scrollContainerRef} todayRef={todayRef} selectedYear={selectedYear} setSelectedYear={setSelectedYear} months={months} tasks={tasks} moods={moods} onDateSelect={(d) => { setSelectedDate(d); setView('home'); }} onAddTask={(d) => { setSelectedDate(d); setIsModalOpen(true); }} scrollToToday={scrollToToday} isPastDate={isPastDate} theme={themeConfig} mode={calendarMode} setMode={handleUpdateCalendarMode} />
+        <CalendarListView scrollContainerRef={scrollContainerRef} todayRef={todayRef} selectedYear={selectedYear} setSelectedYear={setSelectedYear} months={months} tasks={tasks} moods={moods} onDateSelect={(d) => { setSelectedDate(d); setView('home'); }} onAddTask={(d) => { setSelectedDate(d); setIsModalOpen(true); }} scrollToToday={scrollToToday} isPastDate={isPastDate} theme={themeConfig} mode={calendarMode} setMode={handleUpdateCalendarMode} years={availableYears} />
       )}
       {view === 'timeline' && <TimelineViewComponent selectedDate={selectedDate} currentDayTasks={currentDayTasks} selectedDateStr={selectedDateStr} setView={setView} toggleTaskCompletion={toggleTaskCompletion} onAddTaskAtTime={(t) => { setForcedStartTime(t); setIsModalOpen(true); }} isReadOnly={isReadOnly} theme={themeConfig} />}
       {view === 'journal' && <JournalViewComponent selectedDateStr={selectedDateStr} currentMoodId={currentMoodId} setMoodForDate={setMoodForDate} journalEntries={journalEntries} updateJournalEntry={updateJournalEntry} currentImages={currentImages} fileInputRef={fileInputRef} handleImageUpload={handleImageUpload} removeImage={removeImage} currentAudios={currentAudios} addAudio={addAudio} removeAudio={removeAudio} setPreviewImage={setPreviewImage} isReadOnly={isReadOnly} theme={themeConfig} />}
@@ -1386,6 +1576,9 @@ const App: React.FC = () => {
           theme={themeConfig} 
           onExport={handleExportData} 
           onImport={() => importInputRef.current?.click()}
+          savedPin={savedPin}
+          setIsLocked={setIsLocked}
+          onToggleAppLock={handleToggleAppLock}
         />
       )}
       {view === 'theme' && (
